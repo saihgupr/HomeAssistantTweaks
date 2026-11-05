@@ -1,5 +1,5 @@
 /*
- * HA Tweaks v1.11.0 - frontend QoL tweaks for Home Assistant
+ * HA Tweaks v1.12.0 - frontend QoL tweaks for Home Assistant
  * Single-file, zero-dependency frontend plugin for Home Assistant.
  * Load via configuration.yaml:
  *   frontend:
@@ -16,7 +16,7 @@
  */
 
 (() => {
-  const HA_TWEAKS_VERSION = '1.11.0';
+  const HA_TWEAKS_VERSION = '1.12.0';
   const CONFIG_KEY = 'ha_tweaks_config';
   // Pre-1.9.0 keys: read once as fallback so existing users keep their toggles.
   const LEGACY_CONFIG_KEY = 'ha_mods_config';
@@ -69,6 +69,11 @@
   let _pushTimer = null;
   let _pulled = false;
   let _pendingPush = false;
+  // Fresh-install detection (opt-in defaults): true once this browser ever
+  // held stored toggles (new or legacy key).
+  let _hadLocalCfg = false;
+  // True once the HA account ever held stored toggles (new or legacy key).
+  let _hadServerCfg = false;
 
   function readLocal() {
     try {
@@ -78,6 +83,7 @@
         raw = localStorage.getItem(LEGACY_CONFIG_KEY);
         if (raw) localStorage.setItem(CONFIG_KEY, raw);
       }
+      if (raw) _hadLocalCfg = true;
       if (!raw) return {};
       const parsed = JSON.parse(raw);
       return parsed && typeof parsed === 'object' ? parsed : {};
@@ -89,6 +95,8 @@
   function writeLocal(cfg) {
     try {
       localStorage.setItem(CONFIG_KEY, JSON.stringify(cfg || {}));
+      // Anything persisted locally means this browser is no longer fresh.
+      _hadLocalCfg = true;
     } catch (e) {
       // storage may be unavailable; toggles just won't persist locally
     }
@@ -110,7 +118,14 @@
       .then((res) => {
         _pulled = true;
         const val = res && res.value !== undefined ? res.value : res;
-        if (val && typeof val === 'object') {
+        let hasServerCfg = false;
+        try {
+          hasServerCfg = !!(val && typeof val === 'object' && Object.keys(val).length > 0);
+        } catch (e) {
+          hasServerCfg = false;
+        }
+        if (hasServerCfg) {
+          _hadServerCfg = true;
           _memCfg = val;
           writeLocal(val);
           console.log(LOG_TAG, 'sync pull: using server config', val);
@@ -125,7 +140,14 @@
           .callWS({ type: 'frontend/get_user_data', key: LEGACY_CONFIG_KEY })
           .then((legacy) => {
             const val = legacy && legacy.value !== undefined ? legacy.value : legacy;
-            if (val && typeof val === 'object') {
+            let hasLegacyCfg = false;
+            try {
+              hasLegacyCfg = !!(val && typeof val === 'object' && Object.keys(val).length > 0);
+            } catch (e) {
+              hasLegacyCfg = false;
+            }
+            if (hasLegacyCfg) {
+              _hadServerCfg = true;
               _memCfg = val;
               writeLocal(val);
               console.log(LOG_TAG, 'sync pull: migrated legacy server config', val);
@@ -196,10 +218,37 @@
     _pushTimer = setTimeout(pushToServer, 400);
   }
 
+  // Fresh installs default everything to OFF (opt-in): a user with no
+  // stored toggles anywhere (this browser or the HA account) sees all
+  // tweaks and menu items disabled until they toggle them on. Existing
+  // users keep their current state via the defaultEnabled fallback below.
+  function isFreshInstall() {
+    try {
+      return !_hadLocalCfg && !_hadServerCfg;
+    } catch (e) {
+      return false;
+    }
+  }
+
   function isTweakEnabled(tweak) {
-    const cfg = loadConfig();
-    if (cfg && typeof cfg[tweak.id] === 'boolean') return cfg[tweak.id];
-    return tweak.defaultEnabled !== false;
+    try {
+      const cfg = loadConfig();
+      if (cfg && typeof cfg[tweak.id] === 'boolean') return cfg[tweak.id];
+      // Default-fresh installs start opt-in (off); existing users fall
+      // through to the tweak's defaultEnabled fallback.
+      try {
+        if (isFreshInstall()) return false;
+      } catch (e) {
+        // fall through to defaultEnabled
+      }
+      return tweak.defaultEnabled !== false;
+    } catch (e) {
+      try {
+        return tweak && tweak.defaultEnabled !== false;
+      } catch (err) {
+        return false;
+      }
+    }
   }
 
   function saveConfig(cfg) {
@@ -215,10 +264,20 @@
   }
 
   function isItemEnabled(modId, itemId) {
-    const cfg = loadConfig();
-    const key = modId + '.' + itemId;
-    if (cfg && typeof cfg[key] === 'boolean') return cfg[key];
-    return true;
+    try {
+      const cfg = loadConfig();
+      const key = modId + '.' + itemId;
+      if (cfg && typeof cfg[key] === 'boolean') return cfg[key];
+      // Default-fresh installs start opt-in (off); existing users default on.
+      try {
+        if (isFreshInstall()) return false;
+      } catch (e) {
+        // fall through to default on
+      }
+      return true;
+    } catch (e) {
+      return true;
+    }
   }
 
   function setItemEnabled(modId, itemId, on) {
