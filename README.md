@@ -1,0 +1,191 @@
+# Home Assistant Tweaks
+
+[![Open your Home Assistant instance and open a repository inside the Home Assistant Community Store.](https://my.home-assistant.io/badges/hacs_repository.svg)](https://my.home-assistant.io/redirect/hacs_repository/?owner=saihgupr&repository=HomeAssistantTweaks&category=plugin)
+[![Support on Ko-fi](https://img.shields.io/badge/Ko--fi-F16061?style=flat&logo=ko-fi&logoColor=white)](https://ko-fi.com/saihgupr)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+
+## About
+
+Home Assistant Tweaks is a lightweight, native-feeling collection of quality-of-life frontend tweaks for Home Assistant. Add desktop right-click context menus, a calmer automation editor, instant hold actions, and more — all configurable per user in real time with zero restarts required.
+
+<!-- DEMO MEDIA: Placeholder for screenshots and walkthrough GIFs -->
+
+---
+
+## Highlights
+
+- **Context Menus Anywhere:** Right-click automations, scripts, editor blocks, and empty dashboard canvas for instant actions.
+- **Calmer Automation Editor:** Automations and scripts open collapsed by default, complete with a Collapse All / Expand All toolbar button.
+- **Instant Hold Actions:** Right-click cards, badges, and tiles to trigger hold actions immediately without the default 500 ms wait.
+- **Zero Reloads & Instant Sync:** Toggle any tweak in real time via `Cmd/Ctrl + Shift + M`. Settings sync per HA user across desktop and the Companion App.
+- **Safe & Isolated:** Single plain ES module with no external dependencies; one tweak failing will never break the rest of the frontend.
+
+👉 **[Explore the Complete Tweaks Directory & Guides in the Wiki →](https://github.com/saihgupr/HomeAssistantTweaks/wiki/Home)**
+
+---
+
+## Installation
+
+### Option A — HACS (Recommended)
+
+1. Click the HACS badge above, or navigate to **HACS → ⋮ → Custom repositories**, add `https://github.com/saihgupr/HomeAssistantTweaks` with category **Plugin**, and download **Home Assistant Tweaks**.
+2. Add the global loader to `configuration.yaml` (a Lovelace dashboard resource alone does not run on `/config` pages, so this line is required):
+   ```yaml
+   frontend:
+     extra_module_url:
+       - /hacsfiles/HomeAssistantTweaks/ha-tweaks.js?v=1.9.0
+   ```
+3. Restart Home Assistant (or reload frontend resources), then hard-refresh the browser (`Cmd/Ctrl + Shift + R`). Confirm in the developer console (`F12`):
+   ```
+   [HA Tweaks v1.9.0] Initialized
+   ```
+
+<details>
+<summary><b>Option B — Manual Installation (Click to expand)</b></summary>
+
+1. Copy [`ha-tweaks.js`](ha-tweaks.js) to `<config>/www/ha-tweaks.js`.
+2. Add to `configuration.yaml`:
+   ```yaml
+   frontend:
+     extra_module_url:
+       - /local/ha-tweaks.js?v=1.9.0
+   ```
+3. Restart Home Assistant (or reload frontend resources), then hard-refresh. Confirm `[HA Tweaks v1.9.0] Initialized` in the console.
+
+> **Note:** The `?v=` suffix is a browser cache-buster. Keep it matched to your installed version and bump it whenever updating.
+
+> **Upgrading from v1.8.2 or earlier (shipped as HA Mods)?** The file was renamed to `ha-tweaks.js` — update your `extra_module_url` to the new path above. Your toggles carry over automatically; `HATweaks` replaces `HAMods` in the console (`HAMods` still works as an alias).
+
+</details>
+
+---
+
+## Usage
+
+Press **`Cmd/Ctrl + Shift + M`** anywhere in Home Assistant (or run `HATweaks.openSettings()` in the browser console) to open the settings modal. 
+
+Every tweak and individual menu item can be toggled independently. Changes apply immediately without reloading and sync per HA user across desktop and mobile.
+
+<details>
+<summary><b>Tunables & Constants (Click to expand)</b></summary>
+
+Default timing and gesture thresholds live near the top of [`ha-tweaks.js`](ha-tweaks.js):
+
+| Constant | Default | What it changes |
+|---|---|---|
+| `LONG_PRESS_MS` | `550` | Touch hold length before a context menu opens |
+| `LONG_PRESS_MOVE_TOLERANCE_PX` | `10` | Finger drift allowed before a press counts as scroll |
+| `LONG_PRESS_SUPPRESS_MS` | `2000` | Window to swallow the synthetic `contextmenu` iOS fires after long-press |
+| `LIFT_CLICK_IGNORE_MS` | `600` | Window where backdrop taps are ignored after menu open |
+
+</details>
+
+<details>
+<summary><b>Technical Architecture (Click to expand)</b></summary>
+
+- **Dual-Store Sync:** Combines instant `localStorage` caching with HA user-level server storage (`frontend/get_user_data`).
+- **Deep Shadow-DOM Traversal:** Utilizes `querySelectorDeep` and `composedPath` to interact with custom cards, badges, and nested editor rows.
+- **In-Place Navigation:** Intercepts route changes via `location-changed` and `popstate` to bypass disruptive page reloads.
+- **Editor Lifecycle:** Hooks Lit element `updateComplete` cycles to collapse editor blocks before first paint.
+- **Fault Isolation:** Central `TweakRegistry` wraps each tweak in error boundaries so upstream HA frontend updates cannot break other tweaks or the core UI.
+
+</details>
+
+---
+
+## Troubleshooting & Debugging
+
+If a tweak is not appearing or behaving as expected:
+
+1. **Verify Loaded Version:**
+   Press `Cmd/Ctrl + Shift + M` — the modal header displays `HA Tweaks vX.Y.Z`. Alternatively, run in the browser console:
+   ```js
+   HATweaks.version
+   ```
+2. **Verify Initialization:**
+   Check the developer console (`F12` or `Cmd + Option + I`). You should see:
+   ```text
+   [HA Tweaks v1.9.0] Initialized
+   ```
+   If not present, check that `extra_module_url` is added under `frontend:` in `configuration.yaml` and not just as a Lovelace dashboard resource.
+3. **Inspect Settings & Cloud Sync:**
+   Run:
+   ```js
+   HATweaks.syncStatus()
+   ```
+4. **Enable Debug Logging:**
+   To turn on detailed logging:
+   ```js
+   localStorage.ha_tweaks_debug = '1';
+   ```
+   Reload the tab. All tweaks will log initialization, DOM matching, and event dispatch details. To disable, run `delete localStorage.ha_tweaks_debug`.
+5. **Clear Browser Cache:**
+   Browsers aggressively cache frontend modules. Make sure the `?v=1.9.0` query parameter in `configuration.yaml` matches your version, then perform a hard refresh (`Cmd/Ctrl + Shift + R`).
+
+---
+
+## Contributing
+
+Contributions and improvements are welcome!
+
+1. Fork the repository.
+2. Create your branch (`git checkout -b develop` or `git checkout -b feature/your-feature`).
+3. Make your changes in `ha-tweaks.js`.
+4. Run syntax verification:
+   ```bash
+   node --check ha-tweaks.js
+   ```
+5. Commit your changes with clear commit messages.
+6. Submit a Pull Request targeting `main`.
+
+---
+
+## Related Projects
+
+Check out more tools for Home Assistant from the **[Saihgupr Add-ons Repository](https://github.com/saihgupr/ha-addons)**:
+
+- **[Home Assistant Time Machine](https://github.com/saihgupr/HomeAssistantTimeMachine)**: Web-based time machine to browse YAML backups and selectively restore individual automations, scripts, Lovelace views, and packages.
+- **[Home Assistant Version Control](https://github.com/saihgupr/HomeAssistantVersionControl)**: Automated backup, history tracking, and instant restore engine.
+
+[![Add Saihgupr Add-ons Repository](https://my.home-assistant.io/badges/supervisor_add_addon_repository.svg)](https://my.home-assistant.io/redirect/supervisor_add_addon_repository/?repository_url=https%3A%2F%2Fgithub.com%2Fsaihgupr%2Fha-addons)
+
+---
+
+## FAQ
+
+<details>
+<summary><b>Frequently Asked Questions (Click to expand)</b></summary>
+
+**Do I need to reload or edit YAML to toggle something?**  
+No. Press `Cmd/Ctrl + Shift + M`, toggle the switch, and it takes effect immediately. Toggles persist per HA user.
+
+**It says "No UI ID" on Edit/Delete. Why?**  
+That entry is YAML-defined without a UI id, so Home Assistant itself cannot open it in the visual editor. Give it an `id:` in YAML to enable editing.
+
+**Will this break when Home Assistant updates?**  
+Each tweak is fault-isolated: if an upstream DOM change breaks one tweak, it logs a warning and steps aside. The frontend and other tweaks keep working.
+
+**Does it work in the Companion App?**  
+Yes. Toggles sync per user, and long-press touch gestures are supported on iOS and Android.
+
+**How do I confirm which version the browser is actually running?**  
+Press `Cmd/Ctrl + Shift + M` — the settings header displays `HA Tweaks vX.Y.Z`. That is the source of truth, not the `?v=` in your config.
+
+</details>
+
+---
+
+## Support & Feedback
+
+If you find Home Assistant Tweaks useful:
+- ⭐ Star this repository on GitHub.
+- 🐛 Found a bug or have a suggestion? Open an issue on [GitHub Issues](https://github.com/saihgupr/HomeAssistantTweaks/issues).
+- ☕ Support continued maintenance and development:
+
+[![Support on Ko-fi](https://ko-fi.com/img/githubbutton_sm.svg)](https://ko-fi.com/saihgupr)
+
+---
+
+## License
+
+This project is licensed under the [MIT License](LICENSE).
