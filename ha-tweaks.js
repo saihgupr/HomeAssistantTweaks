@@ -1,5 +1,5 @@
 /*
- * HA Tweaks v1.13.3 - frontend QoL tweaks for Home Assistant
+ * HA Tweaks v1.13.4 - frontend QoL tweaks for Home Assistant
  * Single-file, zero-dependency frontend plugin for Home Assistant.
  * Load via configuration.yaml:
  *   frontend:
@@ -17,7 +17,7 @@
  */
 
 (() => {
-  const HA_TWEAKS_VERSION = '1.13.3';
+  const HA_TWEAKS_VERSION = '1.13.4';
   const CONFIG_KEY = 'ha_tweaks_config';
   // Pre-1.9.0 keys: read once as fallback so existing users keep their toggles.
   const LEGACY_CONFIG_KEY = 'ha_mods_config';
@@ -406,6 +406,20 @@
     } catch (e) {
       return [];
     }
+  }
+
+  /* ================================================================
+   * Shared accessibility: one injected stylesheet for :focus-visible.
+   * Inline cssText cannot express :focus-visible, and each injected
+   * surface needs the same visible keyboard outline.
+   * ================================================================ */
+  function ensureFocusStyles() {
+    if (document.getElementById('ha-tweaks-focus-styles')) return;
+    const style = document.createElement('style');
+    style.id = 'ha-tweaks-focus-styles';
+    style.textContent =
+      '.ha-tweaks-focusable:focus-visible{outline:2px solid var(--primary-color,#03a9f4);outline-offset:2px;}';
+    document.head.appendChild(style);
   }
 
   /* ---------- core: toast ---------- */
@@ -1387,6 +1401,7 @@
       this._backdropEl = backdrop;
 
       // menu
+      ensureFocusStyles();
       const menu = document.createElement('div');
       menu.setAttribute('data-ha-tweaks', 'automation-menu');
       menu.setAttribute('role', 'menu');
@@ -1432,6 +1447,7 @@
       function makeItem(iconName, label, color, enabled) {
         const btn = document.createElement('button');
         btn.setAttribute('role', 'menuitem');
+        btn.className = 'ha-tweaks-focusable';
         btn.type = 'button';
         btn.disabled = !enabled;
         btn.title = label;
@@ -3745,6 +3761,7 @@
       this._backdropEl = backdrop;
 
       // menu
+      ensureFocusStyles();
       const menu = document.createElement('div');
       menu.setAttribute('data-ha-tweaks', 'editor-row-menu');
       menu.setAttribute('role', 'menu');
@@ -3778,6 +3795,7 @@
       function makeItem(iconName, label, color, hint) {
         const btn = document.createElement('button');
         btn.setAttribute('role', 'menuitem');
+        btn.className = 'ha-tweaks-focusable';
         btn.type = 'button';
         btn.title = hint ? label + ' (' + hint + ')' : label;
         btn.style.cssText = [
@@ -4278,6 +4296,7 @@
     _makeItem: function (iconName, label) {
       const btn = document.createElement('button');
       btn.setAttribute('role', 'menuitem');
+      btn.className = 'ha-tweaks-focusable';
       btn.type = 'button';
       btn.title = label;
       btn.style.cssText = [
@@ -4343,6 +4362,7 @@
       document.body.appendChild(backdrop);
       this._backdropEl = backdrop;
 
+      ensureFocusStyles();
       const menu = document.createElement('div');
       menu.setAttribute('data-ha-tweaks', 'dashboard-empty-menu');
       menu.setAttribute('role', 'menu');
@@ -6566,9 +6586,9 @@
       this._open = true;
       const self = this;
 
-      // Inject :focus-visible styling once (inline cssText cannot express it),
-      // and remember what had focus so close() can restore it.
-      this._ensureFocusStyles();
+      // Inject shared :focus-visible styling; remember which element had
+      // focus so close() can restore it.
+      ensureFocusStyles();
       this._returnFocus = document.activeElement;
 
       const backdrop = document.createElement('div');
@@ -6825,17 +6845,6 @@
         }
       });
       return btn;
-    },
-
-    // Inline cssText cannot express :focus-visible, so inject one shared
-    // style the first time the modal opens.
-    _ensureFocusStyles: function () {
-      if (document.getElementById('ha-tweaks-focus-styles')) return;
-      const style = document.createElement('style');
-      style.id = 'ha-tweaks-focus-styles';
-      style.textContent =
-        '.ha-tweaks-focusable:focus-visible{outline:2px solid var(--primary-color,#03a9f4);outline-offset:2px;}';
-      document.head.appendChild(style);
     },
 
     // Keep Tab / Shift+Tab cycling inside the dialog while it is open.
