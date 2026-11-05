@@ -87,6 +87,16 @@ Press **`Cmd/Ctrl + Shift + M`** anywhere in Home Assistant (or run `HATweaks.op
 
 Every tweak and individual menu item can be toggled independently. Changes apply immediately without reloading and sync per HA user across desktop and mobile.
 
+Fresh installs start with every tweak off, so you opt in to only what you want. Saved toggles survive updates.
+
+### Reordering the sidebar
+
+Switch on **Drag to reorder sidebar**, then drag any main-navigation item (dashboards, the Marketplace entry, custom panels) up or down. A floating copy follows the pointer with a line showing where it will land; dragging near the top or bottom auto-scrolls the list, and `Escape` cancels.
+
+- Mouse lifts the item as soon as you move; touch lifts after a short hold, so normal scrolling is untouched.
+- The order is saved to Home Assistant's own sidebar user data, so it syncs per user and stays in step with Edit sidebar.
+- The fixed block (Settings, Notifications, Profile) is intentionally not draggable.
+
 <details>
 <summary><b>Tunables & Constants (Click to expand)</b></summary>
 
@@ -98,6 +108,9 @@ Default timing and gesture thresholds live near the top of [`ha-tweaks.js`](ha-t
 | `LONG_PRESS_MOVE_TOLERANCE_PX` | `10` | Finger drift allowed before a press counts as scroll |
 | `LONG_PRESS_SUPPRESS_MS` | `2000` | Window to swallow the synthetic `contextmenu` iOS fires after long-press |
 | `LIFT_CLICK_IGNORE_MS` | `600` | Window where backdrop taps are ignored after menu open |
+| `SIDEBAR_HOLD_MS` | `320` | Touch hold length before a sidebar item lifts for dragging |
+| `SIDEBAR_MOUSE_THRESHOLD_PX` | `5` | Mouse movement needed to start a sidebar drag |
+| `SIDEBAR_AUTOSCROLL_STEP_PX` | `9` | Pixels per frame when dragging near the sidebar's top or bottom edge |
 
 </details>
 
@@ -109,6 +122,7 @@ Default timing and gesture thresholds live near the top of [`ha-tweaks.js`](ha-t
 - **In-Place Navigation:** Intercepts route changes via `location-changed` and `popstate` to bypass disruptive page reloads.
 - **Editor Lifecycle:** Hooks Lit element `updateComplete` cycles to collapse editor blocks before first paint.
 - **Fault Isolation:** Central `TweakRegistry` wraps each tweak in error boundaries so upstream HA frontend updates cannot break other tweaks or the core UI.
+- **Native Sidebar Order:** Drag-to-reorder writes the same `frontend/set_user_data` payload Edit sidebar uses (`panelOrder` / `hiddenPanels`), so no extra storage is introduced and both UIs stay consistent. The drag shows a clone plus an insertion line and lets Lit re-render from the saved order instead of moving nodes underneath it.
 
 </details>
 
