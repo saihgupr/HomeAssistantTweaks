@@ -1,5 +1,5 @@
 /*
- * HA Tweaks v1.13.1 - frontend QoL tweaks for Home Assistant
+ * HA Tweaks v1.13.2 - frontend QoL tweaks for Home Assistant
  * Single-file, zero-dependency frontend plugin for Home Assistant.
  * Load via configuration.yaml:
  *   frontend:
@@ -17,7 +17,7 @@
  */
 
 (() => {
-  const HA_TWEAKS_VERSION = '1.13.1';
+  const HA_TWEAKS_VERSION = '1.13.2';
   const CONFIG_KEY = 'ha_tweaks_config';
   // Pre-1.9.0 keys: read once as fallback so existing users keep their toggles.
   const LEGACY_CONFIG_KEY = 'ha_mods_config';
@@ -6614,8 +6614,7 @@
       title.textContent = 'Home Assistant Tweaks v' + shortVersion;
       title.style.cssText = 'font-weight:600;font-size:16px;margin-bottom:4px;';
       const sub = document.createElement('div');
-      sub.textContent =
-        'Toggle tweaks and menu items. Applies immediately and syncs with your Home Assistant user across devices.';
+      sub.textContent = 'Toggle tweaks and menu items. Applies immediately and syncs across devices.';
       sub.style.cssText = 'font-size:13px;color:var(--secondary-text-color,#727272);';
       head.appendChild(title);
       head.appendChild(sub);
