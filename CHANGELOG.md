@@ -5,6 +5,11 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.13.3] - 2026-11-05
+
+### Fixed
+- Settings modal now follows dialog accessibility conventions: `aria-modal` + `aria-labelledby`, focus moves into the dialog on open (the close button), Tab/Shift+Tab cycle stays inside it, and focus returns to the element that opened it on close. Added a visible close (X) button, and a visible `:focus-visible` outline for the close button and all toggle switches. Toggling a switch no longer drops keyboard focus when the list re-renders.
+
 ## [1.13.2] - 2026-11-05
 
 ### Changed

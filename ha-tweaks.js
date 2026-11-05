@@ -1,5 +1,5 @@
 /*
- * HA Tweaks v1.13.2 - frontend QoL tweaks for Home Assistant
+ * HA Tweaks v1.13.3 - frontend QoL tweaks for Home Assistant
  * Single-file, zero-dependency frontend plugin for Home Assistant.
  * Load via configuration.yaml:
  *   frontend:
@@ -17,7 +17,7 @@
  */
 
 (() => {
-  const HA_TWEAKS_VERSION = '1.13.2';
+  const HA_TWEAKS_VERSION = '1.13.3';
   const CONFIG_KEY = 'ha_tweaks_config';
   // Pre-1.9.0 keys: read once as fallback so existing users keep their toggles.
   const LEGACY_CONFIG_KEY = 'ha_mods_config';
@@ -6554,6 +6554,7 @@
     _backdropEl: null,
     _bodyEl: null,
     _onKeyDown: null,
+    _returnFocus: null,
 
     toggle: function () {
       if (this._open) this.close();
@@ -6564,6 +6565,11 @@
       if (this._open) return;
       this._open = true;
       const self = this;
+
+      // Inject :focus-visible styling once (inline cssText cannot express it),
+      // and remember what had focus so close() can restore it.
+      this._ensureFocusStyles();
+      this._returnFocus = document.activeElement;
 
       const backdrop = document.createElement('div');
       backdrop.setAttribute('data-ha-tweaks', 'settings-backdrop');
@@ -6578,6 +6584,9 @@
       const dialog = document.createElement('div');
       dialog.setAttribute('data-ha-tweaks', 'settings-dialog');
       dialog.setAttribute('role', 'dialog');
+      dialog.setAttribute('aria-modal', 'true');
+      dialog.setAttribute('aria-labelledby', 'ha-tweaks-title');
+      dialog.tabIndex = -1;
       dialog.style.cssText = [
         'position:fixed',
         'z-index:999999',
@@ -6597,12 +6606,17 @@
         'box-shadow:0 8px 28px rgba(0,0,0,0.28)',
         'font-family:inherit',
         'overflow:hidden',
+        'outline:none',
       ].join(';');
 
       const head = document.createElement('div');
       head.style.cssText =
+        'display:flex;align-items:flex-start;justify-content:space-between;gap:12px;' +
         'padding:20px 20px 12px 20px;border-bottom:1px solid var(--divider-color,#e0e0e0);';
+      const headText = document.createElement('div');
+      headText.style.cssText = 'flex:1 1 auto;min-width:0;';
       const title = document.createElement('div');
+      title.setAttribute('id', 'ha-tweaks-title');
       // Header shows the product name plus major.minor, so a patch bump does
       // not churn the title. `HATweaks.version` still reports the full string.
       let shortVersion = HA_TWEAKS_VERSION;
@@ -6616,8 +6630,46 @@
       const sub = document.createElement('div');
       sub.textContent = 'Toggle tweaks and menu items. Applies immediately and syncs across devices.';
       sub.style.cssText = 'font-size:13px;color:var(--secondary-text-color,#727272);';
-      head.appendChild(title);
-      head.appendChild(sub);
+      headText.appendChild(title);
+      headText.appendChild(sub);
+      head.appendChild(headText);
+
+      // Visible dismiss affordance; Escape and the backdrop already work,
+      // but mouse users should not have to discover those.
+      const closeBtn = document.createElement('button');
+      closeBtn.type = 'button';
+      closeBtn.className = 'ha-tweaks-focusable';
+      closeBtn.setAttribute('aria-label', 'Close settings');
+      closeBtn.title = 'Close (Esc)';
+      closeBtn.style.cssText = [
+        'flex:0 0 auto',
+        'display:flex',
+        'align-items:center',
+        'justify-content:center',
+        'width:32px',
+        'height:32px',
+        'margin:-6px -8px 0 0',
+        'padding:0',
+        'border:0',
+        'border-radius:50%',
+        'background:transparent',
+        'color:var(--secondary-text-color,#727272)',
+        'cursor:pointer',
+      ].join(';');
+      const closeIcon = document.createElement('ha-icon');
+      closeIcon.setAttribute('icon', 'mdi:close');
+      closeIcon.style.cssText = '--mdc-icon-size:20px;color:inherit;';
+      closeBtn.appendChild(closeIcon);
+      closeBtn.addEventListener('mouseenter', function () {
+        closeBtn.style.background = 'var(--secondary-background-color,#eeeeee)';
+      });
+      closeBtn.addEventListener('mouseleave', function () {
+        closeBtn.style.background = 'transparent';
+      });
+      closeBtn.addEventListener('click', function () {
+        self.close();
+      });
+      head.appendChild(closeBtn);
       dialog.appendChild(head);
 
       const body = document.createElement('div');
@@ -6631,6 +6683,7 @@
       this._onKeyDown = function (ev) {
         try {
           if (ev && ev.key === 'Escape') self.close();
+          else if (ev && ev.key === 'Tab') self._trapTab(ev);
         } catch (e) {
           // ignore
         }
@@ -6638,12 +6691,31 @@
       window.addEventListener('keydown', this._onKeyDown, { capture: true });
 
       this._render();
+      // Initial focus goes to the close button so keyboard/screen-reader
+      // users land on a labelled control; Tab is trapped inside the dialog.
+      try {
+        const first = dialog.querySelector('.ha-tweaks-focusable');
+        (first || dialog).focus();
+      } catch (e) {
+        // ignore
+      }
     },
 
     _render: function () {
       const body = this._bodyEl;
       if (!body) return;
       const self = this;
+      // Toggling re-renders the list; remember which switch had focus and
+      // restore it afterwards so keyboard users are not dropped to <body>.
+      let refocusKey = null;
+      try {
+        const active = document.activeElement;
+        if (active && active.getAttribute('data-ha-tweaks-toggle')) {
+          refocusKey = active.getAttribute('data-ha-tweaks-toggle');
+        }
+      } catch (e) {
+        refocusKey = null;
+      }
       while (body.firstChild) {
         try {
           body.removeChild(body.firstChild);
@@ -6691,6 +6763,14 @@
           });
         }
       });
+      if (refocusKey) {
+        try {
+          const match = body.querySelector('[data-ha-tweaks-toggle="' + refocusKey + '"]');
+          if (match) match.focus({ preventScroll: true });
+        } catch (e) {
+          // ignore
+        }
+      }
     },
 
     // Plain div switch (no ha-switch dependency): track + knob, HA vars only.
@@ -6699,6 +6779,8 @@
       const btn = document.createElement('button');
       btn.type = 'button';
       btn.setAttribute('role', 'switch');
+      btn.className = 'ha-tweaks-focusable';
+      btn.setAttribute('data-ha-tweaks-toggle', key);
       btn._haTweaksToggle = key;
       btn.style.cssText = [
         'position:relative',
@@ -6745,6 +6827,50 @@
       return btn;
     },
 
+    // Inline cssText cannot express :focus-visible, so inject one shared
+    // style the first time the modal opens.
+    _ensureFocusStyles: function () {
+      if (document.getElementById('ha-tweaks-focus-styles')) return;
+      const style = document.createElement('style');
+      style.id = 'ha-tweaks-focus-styles';
+      style.textContent =
+        '.ha-tweaks-focusable:focus-visible{outline:2px solid var(--primary-color,#03a9f4);outline-offset:2px;}';
+      document.head.appendChild(style);
+    },
+
+    // Keep Tab / Shift+Tab cycling inside the dialog while it is open.
+    _trapTab: function (ev) {
+      const dialog = this._dialogEl;
+      if (!dialog) return;
+      const focusable = Array.prototype.slice
+        .call(
+          dialog.querySelectorAll(
+            'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
+          )
+        )
+        .filter(function (el) {
+          return !el.disabled;
+        });
+      if (!focusable.length) {
+        ev.preventDefault();
+        dialog.focus();
+        return;
+      }
+      const first = focusable[0];
+      const last = focusable[focusable.length - 1];
+      const active = document.activeElement;
+      const inside = active && dialog.contains(active);
+      if (ev.shiftKey) {
+        if (!inside || active === first) {
+          ev.preventDefault();
+          last.focus();
+        }
+      } else if (!inside || active === last) {
+        ev.preventDefault();
+        first.focus();
+      }
+    },
+
     close: function () {
       if (this._onKeyDown) {
         window.removeEventListener('keydown', this._onKeyDown, { capture: true });
@@ -6759,6 +6885,20 @@
         this._backdropEl.parentNode.removeChild(this._backdropEl);
       }
       this._backdropEl = null;
+      // Restore focus to the element that opened the modal.
+      const returnFocus = this._returnFocus;
+      this._returnFocus = null;
+      if (returnFocus && returnFocus.isConnected) {
+        try {
+          returnFocus.focus({ preventScroll: true });
+        } catch (e) {
+          try {
+            if (typeof returnFocus.focus === 'function') returnFocus.focus();
+          } catch (e2) {
+            // ignore
+          }
+        }
+      }
       this._open = false;
     },
   };
