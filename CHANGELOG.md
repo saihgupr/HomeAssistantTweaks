@@ -5,6 +5,12 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.13.1] - 2026-11-05
+
+### Changed
+- Settings header now reads `Home Assistant Tweaks vX.Y` (major.minor, no patch) instead of `HA Tweaks vX.Y.Z`.
+- Settings subtitle now states that toggles sync with the Home Assistant user across devices, instead of the misleading "per browser".
+
 ## [1.13.0] - 2026-11-05
 
 ### Added

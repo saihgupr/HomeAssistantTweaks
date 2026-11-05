@@ -1,5 +1,5 @@
 /*
- * HA Tweaks v1.13.0 - frontend QoL tweaks for Home Assistant
+ * HA Tweaks v1.13.1 - frontend QoL tweaks for Home Assistant
  * Single-file, zero-dependency frontend plugin for Home Assistant.
  * Load via configuration.yaml:
  *   frontend:
@@ -17,7 +17,7 @@
  */
 
 (() => {
-  const HA_TWEAKS_VERSION = '1.13.0';
+  const HA_TWEAKS_VERSION = '1.13.1';
   const CONFIG_KEY = 'ha_tweaks_config';
   // Pre-1.9.0 keys: read once as fallback so existing users keep their toggles.
   const LEGACY_CONFIG_KEY = 'ha_mods_config';
@@ -6603,10 +6603,19 @@
       head.style.cssText =
         'padding:20px 20px 12px 20px;border-bottom:1px solid var(--divider-color,#e0e0e0);';
       const title = document.createElement('div');
-      title.textContent = 'HA Tweaks v' + HA_TWEAKS_VERSION;
+      // Header shows the product name plus major.minor, so a patch bump does
+      // not churn the title. `HATweaks.version` still reports the full string.
+      let shortVersion = HA_TWEAKS_VERSION;
+      try {
+        shortVersion = HA_TWEAKS_VERSION.split('.').slice(0, 2).join('.');
+      } catch (e) {
+        shortVersion = HA_TWEAKS_VERSION;
+      }
+      title.textContent = 'Home Assistant Tweaks v' + shortVersion;
       title.style.cssText = 'font-weight:600;font-size:16px;margin-bottom:4px;';
       const sub = document.createElement('div');
-      sub.textContent = 'Toggle tweaks and menu items. Applies immediately, per browser.';
+      sub.textContent =
+        'Toggle tweaks and menu items. Applies immediately and syncs with your Home Assistant user across devices.';
       sub.style.cssText = 'font-size:13px;color:var(--secondary-text-color,#727272);';
       head.appendChild(title);
       head.appendChild(sub);
