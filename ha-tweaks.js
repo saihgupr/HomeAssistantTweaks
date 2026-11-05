@@ -1,5 +1,5 @@
 /*
- * HA Tweaks v1.12.0 - frontend QoL tweaks for Home Assistant
+ * HA Tweaks v1.13.0 - frontend QoL tweaks for Home Assistant
  * Single-file, zero-dependency frontend plugin for Home Assistant.
  * Load via configuration.yaml:
  *   frontend:
@@ -13,10 +13,11 @@
  *   4. Right-click = long press on Lovelace cards, rows, tiles, and badges
  *   5. Editor row context menu (right-click a trigger/condition/action row)
  *   6. Chips: show after active for (Mushroom chips-card `for:` gating)
+ *   7. Drag sidebar items to reorder them (mouse drag / touch hold)
  */
 
 (() => {
-  const HA_TWEAKS_VERSION = '1.12.0';
+  const HA_TWEAKS_VERSION = '1.13.0';
   const CONFIG_KEY = 'ha_tweaks_config';
   // Pre-1.9.0 keys: read once as fallback so existing users keep their toggles.
   const LEGACY_CONFIG_KEY = 'ha_mods_config';
@@ -5908,6 +5909,641 @@
   };
 
   /* ================================================================
+   * Tweak 7: Drag sidebar items to reorder them
+   * - Delegated pointer handlers only: no observers, no timers, no work
+   *   unless a pointer is actually down on a sidebar panel item.
+   * - Persists through HA's own sidebar user data (frontend/set_user_data,
+   *   key "sidebar"), the same store Edit sidebar writes. So the order
+   *   syncs per user across devices and both UIs stay consistent.
+   * - Lit owns the list, so the drag never moves real nodes: it shows a
+   *   floating clone + an insertion line, then saves and lets HA re-render
+   *   from the new order (no snap-back, no broken click handlers).
+   * ================================================================ */
+  const SIDEBAR_ITEM_PREFIX = 'sidebar-panel-';
+  const SIDEBAR_HOLD_MS = 320;
+  const SIDEBAR_MOUSE_THRESHOLD_PX = 5;
+  const SIDEBAR_TOUCH_CANCEL_PX = 10;
+  const SIDEBAR_AUTOSCROLL_EDGE_PX = 48;
+  const SIDEBAR_AUTOSCROLL_STEP_PX = 9;
+
+  const SidebarDragTweak = {
+    id: 'sidebar-drag',
+    name: 'Drag to reorder sidebar',
+    description:
+      'Hold and drag sidebar items to rearrange them. Saves to Home Assistant\u2019s sidebar order, so it syncs across devices and matches Edit sidebar.',
+    defaultEnabled: true,
+
+    _onPointerDown: null,
+    _onPointerMove: null,
+    _onPointerUp: null,
+    _onClickCapture: null,
+    _onTouchMove: null,
+    _onKeyDown: null,
+    _drag: null,
+    _holdTimer: null,
+    _scrollFrame: null,
+    _swallowClickUntil: 0,
+
+    init: function () {
+      const self = this;
+      this._onPointerDown = function (ev) {
+        try {
+          self._handlePointerDown(ev);
+        } catch (e) {
+          console.warn(LOG_TAG, 'sidebar-drag pointerdown failed', e);
+        }
+      };
+      this._onPointerMove = function (ev) {
+        try {
+          self._handlePointerMove(ev);
+        } catch (e) {
+          // ignore
+        }
+      };
+      this._onPointerUp = function (ev) {
+        try {
+          self._handlePointerUp(ev);
+        } catch (e) {
+          self._cancelDrag();
+        }
+      };
+      this._onClickCapture = function (ev) {
+        try {
+          if (Date.now() < self._swallowClickUntil) {
+            if (ev.cancelable) ev.preventDefault();
+            if (typeof ev.stopPropagation === 'function') ev.stopPropagation();
+          }
+        } catch (e) {
+          // ignore
+        }
+      };
+      // Non-passive: once a drag is active we must stop the list from scrolling.
+      this._onTouchMove = function (ev) {
+        try {
+          if (self._drag && self._drag.active && ev.cancelable) ev.preventDefault();
+        } catch (e) {
+          // ignore
+        }
+      };
+      this._onKeyDown = function (ev) {
+        try {
+          if (ev && ev.key === 'Escape' && self._drag) self._cancelDrag();
+        } catch (e) {
+          // ignore
+        }
+      };
+      window.addEventListener('pointerdown', this._onPointerDown, {
+        capture: true,
+        passive: true,
+      });
+      window.addEventListener('pointermove', this._onPointerMove, {
+        capture: true,
+        passive: true,
+      });
+      window.addEventListener('pointerup', this._onPointerUp, {
+        capture: true,
+        passive: true,
+      });
+      window.addEventListener('pointercancel', this._onPointerUp, {
+        capture: true,
+        passive: true,
+      });
+      window.addEventListener('click', this._onClickCapture, { capture: true });
+      window.addEventListener('touchmove', this._onTouchMove, {
+        capture: true,
+        passive: false,
+      });
+      window.addEventListener('keydown', this._onKeyDown, { capture: true });
+    },
+
+    destroy: function () {
+      if (this._onPointerDown) {
+        window.removeEventListener('pointerdown', this._onPointerDown, { capture: true });
+        this._onPointerDown = null;
+      }
+      if (this._onPointerMove) {
+        window.removeEventListener('pointermove', this._onPointerMove, { capture: true });
+        this._onPointerMove = null;
+      }
+      if (this._onPointerUp) {
+        window.removeEventListener('pointerup', this._onPointerUp, { capture: true });
+        window.removeEventListener('pointercancel', this._onPointerUp, { capture: true });
+        this._onPointerUp = null;
+      }
+      if (this._onClickCapture) {
+        window.removeEventListener('click', this._onClickCapture, { capture: true });
+        this._onClickCapture = null;
+      }
+      if (this._onTouchMove) {
+        window.removeEventListener('touchmove', this._onTouchMove, { capture: true });
+        this._onTouchMove = null;
+      }
+      if (this._onKeyDown) {
+        window.removeEventListener('keydown', this._onKeyDown, { capture: true });
+        this._onKeyDown = null;
+      }
+      this._cancelDrag();
+    },
+
+    onNavigate: function () {
+      // A route change can re-render the sidebar; drop any stale drag state.
+      this._cancelDrag();
+    },
+
+    /* ---------- discovery ---------- */
+
+    _sidebar: function () {
+      try {
+        return querySelectorDeep('ha-sidebar');
+      } catch (e) {
+        return null;
+      }
+    },
+
+    _root: function () {
+      const sidebar = this._sidebar();
+      try {
+        return (sidebar && (sidebar.shadowRoot || sidebar)) || null;
+      } catch (e) {
+        return sidebar || null;
+      }
+    },
+
+    _list: function () {
+      const root = this._root();
+      if (!root || typeof root.querySelector !== 'function') return null;
+      try {
+        return (
+          root.querySelector('ha-list-nav.before-spacer') ||
+          root.querySelector('.before-spacer') ||
+          null
+        );
+      } catch (e) {
+        return null;
+      }
+    },
+
+    _items: function () {
+      const out = [];
+      const list = this._list();
+      if (!list || typeof list.querySelectorAll !== 'function') return out;
+      try {
+        const nodes = list.querySelectorAll(
+          'ha-list-item-button[id^="' + SIDEBAR_ITEM_PREFIX + '"],a[id^="' + SIDEBAR_ITEM_PREFIX + '"]'
+        );
+        for (let i = 0; i < nodes.length; i++) {
+          if (nodes[i] && nodes[i].parentNode) out.push(nodes[i]);
+        }
+      } catch (e) {
+        // ignore
+      }
+      return out;
+    },
+
+    _itemFromPath: function (path) {
+      if (!path || !path.length) return null;
+      for (let i = 0; i < path.length; i++) {
+        const el = path[i];
+        if (!el || typeof el !== 'object' || el.nodeType !== 1) continue;
+        let tag = '';
+        try {
+          tag = ((el.tagName || '') + '').toUpperCase();
+        } catch (e) {
+          tag = '';
+        }
+        if (tag !== 'HA-LIST-ITEM-BUTTON' && tag !== 'A') continue;
+        const id = (el.id || '') + '';
+        if (id.indexOf(SIDEBAR_ITEM_PREFIX) !== 0) continue;
+        // Only the main (scrollable) nav is reorderable; the fixed block
+        // (Settings / notifications / profile) is intentionally not.
+        try {
+          if (typeof el.closest === 'function' && !el.closest('.before-spacer')) {
+            continue;
+          }
+        } catch (e) {
+          // keep it
+        }
+        return el;
+      }
+      return null;
+    },
+
+    _urlPath: function (el) {
+      try {
+        return ((el && el.id) || '').slice(SIDEBAR_ITEM_PREFIX.length);
+      } catch (e) {
+        return '';
+      }
+    },
+
+    /* ---------- gesture ---------- */
+
+    _handlePointerDown: function (ev) {
+      if (!ev || ev.isPrimary === false) return;
+      if (this._drag) return;
+      if (ev.pointerType === 'mouse' && ev.button !== 0) return;
+      const path =
+        typeof ev.composedPath === 'function' ? ev.composedPath() : [ev.target];
+      const item = this._itemFromPath(path);
+      if (!item) return;
+      if (this._items().length < 2) return;
+      const self = this;
+      this._drag = {
+        item: item,
+        pointerId: ev.pointerId,
+        pointerType: ev.pointerType || 'mouse',
+        startX: typeof ev.clientX === 'number' ? ev.clientX : 0,
+        startY: typeof ev.clientY === 'number' ? ev.clientY : 0,
+        active: false,
+        ghost: null,
+        indicator: null,
+        offsetY: 0,
+        rect: null,
+        dropIndex: 0,
+      };
+      // Touch has no hover cue, so a short hold lifts the item before dragging.
+      // Mouse/pen lift as soon as the pointer actually moves.
+      if (this._drag.pointerType === 'touch') {
+        this._holdTimer = setTimeout(function () {
+          self._holdTimer = null;
+          try {
+            if (self._drag && !self._drag.active) self._beginDrag(self._drag.startX, self._drag.startY);
+          } catch (e) {
+            self._cancelDrag();
+          }
+        }, SIDEBAR_HOLD_MS);
+      }
+    },
+
+    _handlePointerMove: function (ev) {
+      const drag = this._drag;
+      if (!drag) return;
+      if (drag.pointerId !== undefined && ev.pointerId !== drag.pointerId) return;
+      const x = typeof ev.clientX === 'number' ? ev.clientX : 0;
+      const y = typeof ev.clientY === 'number' ? ev.clientY : 0;
+      if (!drag.active) {
+        const dx = x - drag.startX;
+        const dy = y - drag.startY;
+        const dist = Math.sqrt(dx * dx + dy * dy);
+        if (drag.pointerType === 'touch') {
+          // Moving before the hold fires means the user is scrolling.
+          if (dist > SIDEBAR_TOUCH_CANCEL_PX) this._cancelDrag();
+          return;
+        }
+        if (dist > SIDEBAR_MOUSE_THRESHOLD_PX) this._beginDrag(x, y);
+        return;
+      }
+      this._moveDrag(x, y);
+    },
+
+    _handlePointerUp: function () {
+      if (!this._drag) return;
+      if (this._drag.active) this._finishDrag();
+      else this._cancelDrag();
+    },
+
+    _beginDrag: function (x, y) {
+      const drag = this._drag;
+      if (!drag) return;
+      const item = drag.item;
+      let rect = null;
+      try {
+        rect = item.getBoundingClientRect();
+      } catch (e) {
+        rect = null;
+      }
+      if (!rect || !rect.height) {
+        this._cancelDrag();
+        return;
+      }
+      drag.active = true;
+      drag.rect = rect;
+      drag.offsetY = Math.max(0, Math.min(rect.height, y - rect.top));
+      this._clearHoldTimer();
+
+      const root = this._root();
+      if (!root || typeof root.appendChild !== 'function') {
+        this._cancelDrag();
+        return;
+      }
+
+      // Floating clone, appended inside ha-sidebar's shadow root so it picks
+      // up the sidebar's own item styles instead of looking foreign.
+      let ghost = null;
+      try {
+        ghost = item.cloneNode(true);
+      } catch (e) {
+        ghost = null;
+      }
+      if (ghost) {
+        try {
+          ghost.removeAttribute('id');
+          ghost.removeAttribute('href');
+          ghost.removeAttribute('aria-current');
+          if (ghost.classList) ghost.classList.remove('selected');
+          ghost.setAttribute('data-ha-tweaks', 'sidebar-drag-ghost');
+          ghost.style.cssText = [
+            'position:fixed',
+            'left:' + rect.left + 'px',
+            'top:' + rect.top + 'px',
+            'width:' + rect.width + 'px',
+            'margin:0',
+            'z-index:999999',
+            'pointer-events:none',
+            'opacity:0.98',
+            'transform:scale(1.03)',
+            'box-shadow:0 10px 28px rgba(0,0,0,0.32)',
+            'border-radius:var(--ha-border-radius-sm,8px)',
+            'transition:box-shadow 120ms ease-out, transform 120ms ease-out',
+          ].join(';');
+          root.appendChild(ghost);
+        } catch (e) {
+          ghost = null;
+        }
+      }
+      drag.ghost = ghost;
+
+      // Insertion line: fixed so it is never clipped by the scroll container.
+      let indicator = null;
+      try {
+        indicator = document.createElement('div');
+        indicator.setAttribute('data-ha-tweaks', 'sidebar-drag-indicator');
+        indicator.style.cssText = [
+          'position:fixed',
+          'left:' + rect.left + 'px',
+          'top:' + rect.top + 'px',
+          'width:' + rect.width + 'px',
+          'height:3px',
+          'margin:0',
+          'padding:0',
+          'border:0',
+          'border-radius:2px',
+          'background:var(--primary-color,#03a9f4)',
+          'box-shadow:0 0 6px var(--primary-color,#03a9f4)',
+          'pointer-events:none',
+          'z-index:999998',
+          'opacity:0',
+          'transition:top 90ms cubic-bezier(0.2,0.7,0.3,1),opacity 90ms linear',
+        ].join(';');
+        root.appendChild(indicator);
+      } catch (e) {
+        indicator = null;
+      }
+      drag.indicator = indicator;
+
+      try {
+        item.style.transition = 'opacity 120ms ease-out';
+        item.style.opacity = '0.25';
+      } catch (e) {
+        // ignore
+      }
+      // Any click that lands at the end of the drag is the drag, not a nav.
+      this._swallowClickUntil = Date.now() + 600;
+      this._moveDrag(x, y);
+    },
+
+    _moveDrag: function (x, y) {
+      const drag = this._drag;
+      if (!drag || !drag.active) return;
+      drag.lastX = x;
+      drag.lastY = y;
+      if (drag.ghost) {
+        try {
+          drag.ghost.style.top = y - drag.offsetY + 'px';
+        } catch (e) {
+          // ignore
+        }
+      }
+      const target = this._insertionTarget(y);
+      drag.dropIndex = target.index;
+      if (drag.indicator) {
+        try {
+          if (target.rect) {
+            drag.indicator.style.top = target.top + 'px';
+            drag.indicator.style.left = target.rect.left + 'px';
+            drag.indicator.style.width = target.rect.width + 'px';
+            drag.indicator.style.opacity = '1';
+          } else {
+            drag.indicator.style.opacity = '0';
+          }
+        } catch (e) {
+          // ignore
+        }
+      }
+      this._autoScroll(y);
+    },
+
+    // Index in the list WITHOUT the dragged item, plus the line position.
+    _insertionTarget: function (y) {
+      const drag = this._drag;
+      const items = this._items();
+      let index = 0;
+      let lineTop = 0;
+      let refRect = null;
+      let lastRect = null;
+      for (let i = 0; i < items.length; i++) {
+        const el = items[i];
+        if (drag && el === drag.item) continue;
+        let rect = null;
+        try {
+          rect = el.getBoundingClientRect();
+        } catch (e) {
+          rect = null;
+        }
+        if (!rect || !rect.height) continue;
+        if (!refRect) refRect = rect;
+        lastRect = rect;
+        if (y < rect.top + rect.height / 2) {
+          return { index: index, top: rect.top - 2, rect: rect };
+        }
+        index++;
+      }
+      return {
+        index: index,
+        top: lastRect ? lastRect.bottom - 1 : 0,
+        rect: refRect,
+      };
+    },
+
+    _autoScroll: function (y) {
+      const self = this;
+      const list = this._list();
+      if (!list) return;
+      let rect = null;
+      try {
+        rect = list.getBoundingClientRect();
+      } catch (e) {
+        return;
+      }
+      let dir = 0;
+      if (rect.height > 0 && list.scrollHeight > list.clientHeight + 4) {
+        if (y < rect.top + SIDEBAR_AUTOSCROLL_EDGE_PX) dir = -1;
+        else if (y > rect.bottom - SIDEBAR_AUTOSCROLL_EDGE_PX) dir = 1;
+      }
+      if (dir === 0) {
+        this._stopAutoScroll();
+        return;
+      }
+      if (this._scrollFrame !== null) return;
+      const step = function () {
+        self._scrollFrame = null;
+        const drag = self._drag;
+        if (!drag || !drag.active) return;
+        const el = self._list();
+        if (!el) return;
+        const before = el.scrollTop;
+        el.scrollTop = before + dir * SIDEBAR_AUTOSCROLL_STEP_PX;
+        if (el.scrollTop !== before) {
+          // Keep the ghost and line in step while the list moves under them.
+          try {
+            self._moveDrag(drag.lastX || 0, drag.lastY || 0);
+          } catch (e) {
+            // ignore
+          }
+        }
+        self._scrollFrame = requestAnimationFrame(step);
+      };
+      this._scrollFrame = requestAnimationFrame(step);
+    },
+
+    _stopAutoScroll: function () {
+      if (this._scrollFrame !== null) {
+        try {
+          cancelAnimationFrame(this._scrollFrame);
+        } catch (e) {
+          // ignore
+        }
+        this._scrollFrame = null;
+      }
+    },
+
+    _finishDrag: function () {
+      const drag = this._drag;
+      if (!drag) return;
+      const items = this._items();
+      const order = [];
+      let draggedPath = '';
+      for (let i = 0; i < items.length; i++) {
+        const p = this._urlPath(items[i]);
+        if (!p) continue;
+        if (items[i] === drag.item) {
+          draggedPath = p;
+          continue;
+        }
+        order.push(p);
+      }
+      if (draggedPath) {
+        let at = typeof drag.dropIndex === 'number' ? drag.dropIndex : order.length;
+        if (at < 0) at = 0;
+        if (at > order.length) at = order.length;
+        order.splice(at, 0, draggedPath);
+      }
+      this._cleanupDrag();
+      if (!draggedPath || !order.length) return;
+      this._saveOrder(order);
+    },
+
+    _cancelDrag: function () {
+      this._cleanupDrag();
+    },
+
+    _clearHoldTimer: function () {
+      if (this._holdTimer) {
+        try {
+          clearTimeout(this._holdTimer);
+        } catch (e) {
+          // ignore
+        }
+        this._holdTimer = null;
+      }
+    },
+
+    _cleanupDrag: function () {
+      const drag = this._drag;
+      this._clearHoldTimer();
+      this._stopAutoScroll();
+      if (drag) {
+        try {
+          if (drag.ghost && drag.ghost.parentNode) {
+            drag.ghost.parentNode.removeChild(drag.ghost);
+          }
+        } catch (e) {
+          // ignore
+        }
+        try {
+          if (drag.indicator && drag.indicator.parentNode) {
+            drag.indicator.parentNode.removeChild(drag.indicator);
+          }
+        } catch (e) {
+          // ignore
+        }
+        try {
+          if (drag.item) {
+            drag.item.style.opacity = '';
+            drag.item.style.transition = '';
+          }
+        } catch (e) {
+          // ignore
+        }
+      }
+      this._drag = null;
+    },
+
+    /* ---------- persistence ---------- */
+
+    // Writes the same payload Edit sidebar writes. Panels that are currently
+    // hidden or not visible keep their existing slot at the end, so dragging
+    // never silently unhides anything.
+    _saveOrder: function (visibleOrder) {
+      const hass = getHass();
+      if (!hass || typeof hass.callWS !== 'function') {
+        toast('HA Tweaks: lost connection to Home Assistant');
+        return;
+      }
+      const sidebar = this._sidebar();
+      let hidden = [];
+      let previous = [];
+      try {
+        if (sidebar && Array.isArray(sidebar._hiddenPanels)) {
+          hidden = sidebar._hiddenPanels.slice();
+        } else if (typeof localStorage !== 'undefined') {
+          const raw = localStorage.getItem('sidebarHiddenPanels');
+          const parsed = raw ? JSON.parse(raw) : null;
+          if (Array.isArray(parsed)) hidden = parsed;
+        }
+      } catch (e) {
+        hidden = [];
+      }
+      try {
+        if (sidebar && Array.isArray(sidebar._panelOrder)) {
+          previous = sidebar._panelOrder.slice();
+        } else if (typeof localStorage !== 'undefined') {
+          const raw = localStorage.getItem('sidebarPanelOrder');
+          const parsed = raw ? JSON.parse(raw) : null;
+          if (Array.isArray(parsed)) previous = parsed;
+        }
+      } catch (e) {
+        previous = [];
+      }
+      const merged = visibleOrder.slice();
+      for (let i = 0; i < previous.length; i++) {
+        const p = previous[i];
+        if (typeof p === 'string' && p && merged.indexOf(p) < 0) merged.push(p);
+      }
+      hass
+        .callWS({
+          type: 'frontend/set_user_data',
+          key: 'sidebar',
+          value: { panelOrder: merged, hiddenPanels: hidden },
+        })
+        .catch(function (err) {
+          console.warn(LOG_TAG, 'sidebar-drag save failed', err);
+          toast('Could not save the sidebar order');
+        });
+    },
+  };
+
+  /* ================================================================
    * Settings page: chrome-flags style toggles. One master switch per tweak,
    * plus per-item switches for tweaks that expose them (the context menu).
    * Everything applies immediately, no reload, persisted per browser.
@@ -6126,6 +6762,7 @@
   TweakRegistry.register(DashboardEmptyMenuTweak);
   TweakRegistry.register(RightClickHoldTweak);
   TweakRegistry.register(ChipActiveForTweak);
+  TweakRegistry.register(SidebarDragTweak);
 
   window.addEventListener('location-changed', handleRouteChange);
   window.addEventListener('popstate', handleRouteChange);

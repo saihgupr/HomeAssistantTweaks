@@ -17,6 +17,7 @@ Home Assistant Tweaks is a lightweight, native-feeling collection of quality-of-
 - **Context Menus Anywhere:** Right-click automations, scripts, editor blocks, and empty dashboard canvas for instant actions.
 - **Calmer Automation Editor:** Automations and scripts open collapsed by default, complete with a Collapse All / Expand All toolbar button.
 - **Instant Hold Actions:** Right-click cards, badges, and tiles to trigger hold actions immediately without the default 500 ms wait.
+- **Drag-to-Reorder Sidebar:** Hold and drag sidebar items into any order you like. Saves to Home Assistant's own sidebar order, so it syncs across devices and matches Edit sidebar.
 - **Marketplace in Sidebar:** Native `panel_custom` sidebar entry that redirects to the Marketplace, visible in the sidebar and Edit sidebar (admins only).
 - **Zero Reloads & Instant Sync:** Toggle any tweak in real time via `Cmd/Ctrl + Shift + M`. Settings sync per HA user across desktop and the Companion App.
 - **Safe & Isolated:** Single plain ES module with no external dependencies; one tweak failing will never break the rest of the frontend.
@@ -34,11 +35,11 @@ Home Assistant Tweaks is a lightweight, native-feeling collection of quality-of-
    ```yaml
    frontend:
      extra_module_url:
-       - /hacsfiles/HomeAssistantTweaks/ha-tweaks.js?v=1.12.0
+       - /hacsfiles/HomeAssistantTweaks/ha-tweaks.js?v=1.13.0
    ```
 3. Restart Home Assistant (or reload frontend resources), then hard-refresh the browser (`Cmd/Ctrl + Shift + R`). Confirm in the developer console (`F12`):
    ```
-   [HA Tweaks v1.12.0] Initialized
+   [HA Tweaks v1.13.0] Initialized
    ```
 
 <details>
@@ -49,9 +50,9 @@ Home Assistant Tweaks is a lightweight, native-feeling collection of quality-of-
    ```yaml
    frontend:
      extra_module_url:
-       - /local/ha-tweaks.js?v=1.12.0
+       - /local/ha-tweaks.js?v=1.13.0
    ```
-3. Restart Home Assistant (or reload frontend resources), then hard-refresh. Confirm `[HA Tweaks v1.12.0] Initialized` in the console.
+3. Restart Home Assistant (or reload frontend resources), then hard-refresh. Confirm `[HA Tweaks v1.13.0] Initialized` in the console.
 
 > **Note:** The `?v=` suffix is a browser cache-buster. Keep it matched to your installed version and bump it whenever updating.
 
@@ -125,7 +126,7 @@ If a tweak is not appearing or behaving as expected:
 2. **Verify Initialization:**
    Check the developer console (`F12` or `Cmd + Option + I`). You should see:
    ```text
-   [HA Tweaks v1.12.0] Initialized
+   [HA Tweaks v1.13.0] Initialized
    ```
    If not present, check that `extra_module_url` is added under `frontend:` in `configuration.yaml` and not just as a Lovelace dashboard resource.
 3. **Inspect Settings & Cloud Sync:**
@@ -140,7 +141,7 @@ If a tweak is not appearing or behaving as expected:
    ```
    Reload the tab. All tweaks will log initialization, DOM matching, and event dispatch details. To disable, run `delete localStorage.ha_tweaks_debug`.
 5. **Clear Browser Cache:**
-   Browsers aggressively cache frontend modules. Make sure the `?v=1.12.0` query parameter in `configuration.yaml` matches your version, then perform a hard refresh (`Cmd/Ctrl + Shift + R`).
+   Browsers aggressively cache frontend modules. Make sure the `?v=1.13.0` query parameter in `configuration.yaml` matches your version, then perform a hard refresh (`Cmd/Ctrl + Shift + R`).
 
 ---
 
