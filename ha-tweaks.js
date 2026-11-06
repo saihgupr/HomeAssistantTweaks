@@ -1,5 +1,5 @@
 /*
- * HA Tweaks v1.15.0 - frontend QoL tweaks for Home Assistant
+ * HA Tweaks v1.15.1 - frontend QoL tweaks for Home Assistant
  * Single-file, zero-dependency frontend plugin for Home Assistant.
  * Load via configuration.yaml:
  *   frontend:
@@ -17,7 +17,7 @@
  */
 
 (() => {
-  const HA_TWEAKS_VERSION = '1.15.0';
+  const HA_TWEAKS_VERSION = '1.15.1';
   const CONFIG_KEY = 'ha_tweaks_config';
   // Pre-1.9.0 keys: read once as fallback so existing users keep their toggles.
   const LEGACY_CONFIG_KEY = 'ha_mods_config';
@@ -6557,7 +6557,7 @@
     'dashboard-empty-menu': 'mdi:view-dashboard',
     'auto-collapse-editor': 'mdi:arrow-collapse-all',
     'right-click-hold': 'mdi:mouse-right-click',
-    'chip-active-for': 'mdi:chip',
+    'chip-active-for': 'mdi:mushroom',
     'sidebar-drag': 'mdi:drag',
   };
 
