@@ -1,5 +1,5 @@
 /*
- * HA Tweaks v1.16.2 - frontend QoL tweaks for Home Assistant
+ * HA Tweaks v1.16.3 - frontend QoL tweaks for Home Assistant
  * Single-file, zero-dependency frontend plugin for Home Assistant.
  * Load via configuration.yaml:
  *   frontend:
@@ -17,7 +17,7 @@
  */
 
 (() => {
-  const HA_TWEAKS_VERSION = '1.16.2';
+  const HA_TWEAKS_VERSION = '1.16.3';
   const CONFIG_KEY = 'ha_tweaks_config';
   // Pre-1.9.0 keys: read once as fallback so existing users keep their toggles.
   const LEGACY_CONFIG_KEY = 'ha_mods_config';
@@ -5033,7 +5033,7 @@
     id: 'inline-title-rename',
     name: 'Rename by clicking the title',
     description:
-      'Click the automation or script name in the editor header to edit it in place. Enter or blur commits the name, Escape cancels, and the normal Save action persists it.',
+      'Click the automation or script name in the editor header to edit it in place. The editor and Save button update as you type, Enter or blur commits, and Escape cancels.',
     defaultEnabled: true,
 
     _onClick: null,
@@ -5153,7 +5153,13 @@
         slot: slot,
         subpage: hit.subpage,
         editor: editor,
-        original: alias,
+        originalAlias: editor.config.alias,
+        originalHadAlias: Object.prototype.hasOwnProperty.call(
+          editor.config,
+          'alias'
+        ),
+        originalHeader: hit.subpage.header,
+        previewed: false,
         done: false,
       };
       this._active = state;
@@ -5177,6 +5183,13 @@
       input.addEventListener('blur', function () {
         try {
           self._finish(state, true);
+        } catch (e) {
+          // ignore
+        }
+      });
+      input.addEventListener('input', function () {
+        try {
+          self._preview(state);
         } catch (e) {
           // ignore
         }
@@ -5264,6 +5277,55 @@
       }
     },
 
+    // Keep the editor's dirty state live while typing, so the Save button
+    // slides up immediately instead of waiting for blur.
+    _preview: function (state) {
+      if (!state || state.done) return;
+      const value = String(state.input.value || '');
+      state.previewed = true;
+      this._setAlias(state, value, value || null);
+    },
+
+    _setAlias: function (state, value, headerValue) {
+      const editor = state.editor;
+      try {
+        const config = Object.assign({}, editor.config, { alias: value });
+        editor.config = config;
+        if (typeof editor._updateDirtyState === 'function') {
+          editor._updateDirtyState({
+            config: config,
+            entityRegistryUpdate: editor.entityRegistryUpdate,
+          });
+        }
+        if (typeof editor.requestUpdate === 'function') editor.requestUpdate();
+        if (typeof headerValue === 'string') state.subpage.header = headerValue;
+      } catch (e) {
+        console.warn(LOG_TAG, 'inline-title-rename update failed', e);
+      }
+    },
+
+    _restoreAlias: function (state) {
+      const editor = state.editor;
+      try {
+        const config = Object.assign({}, editor.config);
+        if (state.originalHadAlias) config.alias = state.originalAlias;
+        else delete config.alias;
+        editor.config = config;
+        if (typeof editor._updateDirtyState === 'function') {
+          editor._updateDirtyState({
+            config: config,
+            entityRegistryUpdate: editor.entityRegistryUpdate,
+          });
+        }
+        if (typeof editor.requestUpdate === 'function') editor.requestUpdate();
+        if (typeof state.originalHeader === 'string') {
+          state.subpage.header = state.originalHeader;
+        }
+      } catch (e) {
+        console.warn(LOG_TAG, 'inline-title-rename restore failed', e);
+      }
+    },
+
     _finish: function (state, commit) {
       if (!state || state.done) return;
       state.done = true;
@@ -5289,23 +5351,17 @@
         // ignore
       }
 
-      if (!commit || !value || value === state.original) return;
-
-      const editor = state.editor;
-      try {
-        const config = Object.assign({}, editor.config, { alias: value });
-        editor.config = config;
-        if (typeof editor._updateDirtyState === 'function') {
-          editor._updateDirtyState({
-            config: config,
-            entityRegistryUpdate: editor.entityRegistryUpdate,
-          });
-        }
-        if (typeof editor.requestUpdate === 'function') editor.requestUpdate();
-        state.subpage.header = value;
-      } catch (e) {
-        console.warn(LOG_TAG, 'inline-title-rename update failed', e);
+      if (!commit || !value) {
+        if (state.previewed) this._restoreAlias(state);
+        return;
       }
+
+      if (value === state.originalAlias) {
+        if (state.previewed) this._restoreAlias(state);
+        return;
+      }
+
+      this._setAlias(state, value, value);
     },
 
     _findTitle: function (path) {
