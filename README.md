@@ -31,32 +31,33 @@ Home Assistant Tweaks is a lightweight, native-feeling collection of quality-of-
 ### Option A — HACS (Recommended)
 
 1. Click the HACS badge above, or navigate to **HACS → ⋮ → Custom repositories**, add `https://github.com/saihgupr/HomeAssistantTweaks` with category **Plugin**, and download **Home Assistant Tweaks**.
-2. Add the global loader to `configuration.yaml` (a Lovelace dashboard resource alone does not run on `/config` pages, so this line is required):
+2. Add the global module URL to `configuration.yaml` (a Lovelace dashboard resource alone does not run on `/config` pages, so this line is required):
    ```yaml
    frontend:
      extra_module_url:
-       - /hacsfiles/HomeAssistantTweaks/ha-tweaks.js?v=1.15.1
+       - /hacsfiles/HomeAssistantTweaks/ha-tweaks-loader.js
    ```
-3. Restart Home Assistant (or reload frontend resources), then hard-refresh the browser (`Cmd/Ctrl + Shift + R`). Confirm in the developer console (`F12`):
+3. Restart Home Assistant once, then reload the page. Confirm in the developer console (`F12`):
    ```
    [HA Tweaks v1.15.1] Initialized
    ```
+   The loader probes the installed `ha-tweaks.js` for its current ETag and imports that build. After this one-time setup, plugin updates only need a page reload, not a Home Assistant restart.
 
 <details>
 <summary><b>Option B — Manual Installation (Click to expand)</b></summary>
 
-1. Copy [`ha-tweaks.js`](ha-tweaks.js) to `<config>/www/ha-tweaks.js`.
+1. Copy [`ha-tweaks.js`](ha-tweaks.js) and [`ha-tweaks-loader.js`](ha-tweaks-loader.js) to `<config>/www/`.
 2. Add to `configuration.yaml`:
    ```yaml
    frontend:
      extra_module_url:
-       - /local/ha-tweaks.js?v=1.15.1
+       - /local/ha-tweaks-loader.js
    ```
-3. Restart Home Assistant (or reload frontend resources), then hard-refresh. Confirm `[HA Tweaks v1.15.1] Initialized` in the console.
+3. Restart Home Assistant once, then reload. Confirm `[HA Tweaks v1.15.1] Initialized` in the console.
 
-> **Note:** The `?v=` suffix is a browser cache-buster. Keep it matched to your installed version and bump it whenever updating.
+> **Note:** The loader keeps the `extra_module_url` stable. It probes `/local/ha-tweaks.js` for its current ETag and imports that revision, so deploying a new `ha-tweaks.js` only needs a page reload, not a Home Assistant restart. Keep both files in the same directory.
 
-> **Upgrading from v1.8.2 or earlier (shipped as HA Mods)?** The file was renamed to `ha-tweaks.js` — update your `extra_module_url` to the new path above. Your toggles carry over automatically; `HATweaks` replaces `HAMods` in the console (`HAMods` still works as an alias).
+> **Upgrading from v1.8.2 or earlier (shipped as HA Mods)?** The file was renamed to `ha-tweaks.js` — update `extra_module_url` to the loader path above. Your toggles carry over automatically; `HATweaks` replaces `HAMods` in the console (`HAMods` still works as an alias).
 
 </details>
 
@@ -154,8 +155,8 @@ If a tweak is not appearing or behaving as expected:
    localStorage.ha_tweaks_debug = '1';
    ```
    Reload the tab. All tweaks will log initialization, DOM matching, and event dispatch details. To disable, run `delete localStorage.ha_tweaks_debug`.
-5. **Clear Browser Cache:**
-   Browsers aggressively cache frontend modules. Make sure the `?v=1.15.1` query parameter in `configuration.yaml` matches your version, then perform a hard refresh (`Cmd/Ctrl + Shift + R`).
+5. **Refresh the Module:**
+   The loader imports the current build automatically. If a tab still shows an old version, close other Home Assistant tabs and reload. As a last resort, clear site data for the HA origin. No Home Assistant restart is needed.
 
 ---
 
@@ -204,7 +205,7 @@ Each tweak is fault-isolated: if an upstream DOM change breaks one tweak, it log
 Yes. Toggles sync per user, and long-press touch gestures are supported on iOS and Android.
 
 **How do I confirm which version the browser is actually running?**  
-Press `T` to open settings — `HATweaks.version` in the browser console is the source of truth, not the `?v=` in your config.
+Press `T` to open settings — `HATweaks.version` in the browser console is the source of truth.
 
 </details>
 

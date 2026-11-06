@@ -5,6 +5,11 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Changed
+- Added a stable `ha-tweaks-loader.js` entry point. `frontend.extra_module_url` now points at the loader, which reads the current `ha-tweaks.js` ETag and imports that build. Deploying an update no longer requires editing `configuration.yaml` or restarting Home Assistant.
+
 ## [1.15.1] - 2026-11-06
 
 ### Changed
