@@ -5,6 +5,11 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.14.3] - 2026-11-06
+
+### Changed
+- Settings popup now matches Home Assistant's quick-bar metrics: 40px top offset, content-driven height with a 620px minimum and 48px viewport reserve, 40px outlined search field, 32px filter chips, 16/12px row padding, HA scrim backdrop brightness, and clear button for non-empty searches.
+
 ## [1.14.2] - 2026-11-06
 
 ### Changed

@@ -1,5 +1,5 @@
 /*
- * HA Tweaks v1.14.2 - frontend QoL tweaks for Home Assistant
+ * HA Tweaks v1.14.3 - frontend QoL tweaks for Home Assistant
  * Single-file, zero-dependency frontend plugin for Home Assistant.
  * Load via configuration.yaml:
  *   frontend:
@@ -17,7 +17,7 @@
  */
 
 (() => {
-  const HA_TWEAKS_VERSION = '1.14.2';
+  const HA_TWEAKS_VERSION = '1.14.3';
   const CONFIG_KEY = 'ha_tweaks_config';
   // Pre-1.9.0 keys: read once as fallback so existing users keep their toggles.
   const LEGACY_CONFIG_KEY = 'ha_mods_config';
@@ -6602,7 +6602,9 @@
       backdrop.setAttribute('data-ha-tweaks', 'settings-backdrop');
       backdrop.style.cssText =
         'position:fixed;inset:0;z-index:999998;' +
-        'background:var(--mdc-dialog-scrim-color,rgba(0,0,0,0.45));' +
+        'background:transparent;' +
+        'backdrop-filter:var(--ha-dialog-scrim-backdrop-filter,brightness(68%));' +
+        '-webkit-backdrop-filter:var(--ha-dialog-scrim-backdrop-filter,brightness(68%));' +
         'margin:0;padding:0;border:0;';
       backdrop.addEventListener('click', function () {
         self.close();
@@ -6619,10 +6621,10 @@
         'position:fixed',
         'z-index:999999',
         'left:50%',
-        'top:max(16px,env(safe-area-inset-top,0px))',
+        'top:max(40px,env(safe-area-inset-top,0px))',
         'transform:translateX(-50%)',
-        'width:min(580px,calc(100vw - 32px))',
-        'height:min(760px,calc(100dvh - 48px))',
+        'width:min(580px,95vw)',
+        'height:auto',
         'min-height:min(620px,calc(100dvh - 48px))',
         'max-height:calc(100dvh - 48px)',
         'display:flex',
@@ -6632,8 +6634,8 @@
         'background:var(--card-background-color,#ffffff)',
         'color:var(--primary-text-color,#212121)',
         'border:0',
-        'border-radius:var(--ha-border-radius-3xl,28px)',
-        'box-shadow:var(--ha-shadow-l,0 12px 40px rgba(0,0,0,0.35))',
+        'border-radius:var(--ha-border-radius-3xl,24px)',
+        'box-shadow:var(--wa-shadow-l,0 12px 40px rgba(0,0,0,0.35))',
         'font-family:inherit',
         'overflow:hidden',
         'outline:none',
@@ -6654,39 +6656,93 @@
       const searchIcon = document.createElement('ha-icon');
       searchIcon.setAttribute('icon', 'mdi:magnify');
       searchIcon.style.cssText =
-        'position:absolute;left:28px;top:27px;--mdc-icon-size:24px;' +
+        'position:absolute;left:28px;top:24px;--mdc-icon-size:24px;' +
         'color:var(--primary-text-color,#212121);pointer-events:none;';
       const input = document.createElement('input');
-      input.type = 'search';
+      input.type = 'text';
+      input.setAttribute('data-ha-tweaks', 'settings-search');
       input.setAttribute('tabindex', '-1');
       input.setAttribute('aria-label', 'Search Home Assistant Tweaks v' + HA_TWEAKS_VERSION);
+      input.setAttribute('enterkeyhint', 'search');
       input.placeholder = 'Search Home Assistant Tweaks v' + HA_TWEAKS_VERSION;
       input.autocomplete = 'off';
       input.spellcheck = false;
       input.style.cssText = [
         'width:100%',
-        'height:52px',
-        'padding:0 16px 0 48px',
-        'border:1px solid var(--primary-color,#03a9f4)',
+        'height:40px',
+        'padding:0 40px 0 48px',
+        'border:1px solid var(--ha-color-border-neutral-quiet,var(--divider-color,#e0e0e0))',
         'border-radius:var(--ha-border-radius-md,8px)',
-        'background:transparent',
+        'background:var(--card-background-color,#ffffff)',
         'color:var(--primary-text-color,#212121)',
         'font-family:inherit',
-        'font-size:16px',
+        'font-size:14px',
         'font-weight:400',
+        'line-height:20px',
         'text-align:left',
         'outline:none',
       ].join(';');
+      function paintSearchBorder() {
+        input.style.borderColor = document.activeElement === input
+          ? 'var(--primary-color,#03a9f4)'
+          : 'var(--ha-color-border-neutral-quiet,var(--divider-color,#e0e0e0))';
+      }
+      input.addEventListener('focus', paintSearchBorder);
+      input.addEventListener('blur', paintSearchBorder);
+      const clearButton = document.createElement('button');
+      clearButton.type = 'button';
+      clearButton.setAttribute('data-ha-tweaks', 'settings-search-clear');
+      clearButton.setAttribute('tabindex', '-1');
+      clearButton.setAttribute('aria-label', 'Clear search');
+      clearButton.style.cssText = [
+        'position:absolute',
+        'right:20px',
+        'top:20px',
+        'display:none',
+        'align-items:center',
+        'justify-content:center',
+        'width:32px',
+        'height:32px',
+        'padding:0',
+        'border:0',
+        'border-radius:var(--ha-border-radius-md,8px)',
+        'background:transparent',
+        'color:var(--secondary-text-color,#727272)',
+        'cursor:pointer',
+        'outline:none',
+      ].join(';');
+      const clearIcon = document.createElement('ha-icon');
+      clearIcon.setAttribute('icon', 'mdi:close');
+      clearIcon.style.cssText = '--mdc-icon-size:18px;color:inherit;pointer-events:none;';
+      clearButton.appendChild(clearIcon);
+      function syncClearButton() {
+        clearButton.style.display = input.value ? 'flex' : 'none';
+      }
       input.addEventListener('input', function (ev) {
         try {
           self._query = String((ev.target && ev.target.value) || '');
+          syncClearButton();
           self._renderList();
         } catch (e) {
           // keep typing usable even if rendering fails once
         }
       });
+      clearButton.addEventListener('click', function () {
+        input.value = '';
+        self._query = '';
+        syncClearButton();
+        self._renderList();
+        try {
+          input.focus({ preventScroll: true });
+        } catch (e) {
+          try { input.focus(); } catch (ignore) { /* ignore */ }
+        }
+      });
+      syncClearButton();
+      paintSearchBorder();
       searchWrap.appendChild(searchIcon);
       searchWrap.appendChild(input);
+      searchWrap.appendChild(clearButton);
       dialog.appendChild(searchWrap);
       this._searchEl = input;
 
@@ -6713,8 +6769,8 @@
           const separator = document.createElement('div');
           separator.setAttribute('aria-hidden', 'true');
           separator.style.cssText =
-            'flex:0 0 auto;width:1px;height:32px;' +
-            'border:0;background:var(--ha-color-border-neutral-quiet,var(--divider-color,#e0e0e0));';
+            'flex:0 0 auto;width:0;height:32px;' +
+            'border:0;border-left:1px solid var(--ha-color-border-neutral-quiet,var(--divider-color,#e0e0e0));';
           chips.appendChild(separator);
           return;
         }
@@ -6729,16 +6785,16 @@
           'align-items:center',
           'justify-content:center',
           'gap:8px',
-          'height:40px',
-          'padding:0 16px',
-          'border:1px solid var(--ha-color-border-neutral-quiet,var(--divider-color,#e0e0e0))',
+          'height:32px',
+          'padding:0 12px',
+          'border:1px solid var(--outline-color,rgba(225,225,225,0.12))',
           'border-radius:var(--ha-border-radius-md,8px)',
           'background:transparent',
           'color:var(--primary-color,#03a9f4)',
           'font-family:inherit',
           'font-size:14px',
           'font-weight:500',
-          'line-height:1',
+          'line-height:20px',
           'cursor:pointer',
           'outline:none',
           'white-space:nowrap',
@@ -6769,7 +6825,7 @@
         'min-height:0',
         'overflow-y:auto',
         'overflow-x:hidden',
-        'padding:4px 0 16px 0',
+        'padding:0 0 32px 0',
         'border-top:1px solid transparent',
       ].join(';');
       list.addEventListener('scroll', function () {
@@ -6881,15 +6937,16 @@
         const isSelected = chip.getAttribute('data-ha-tweaks-section') === selected;
         chip.setAttribute('aria-pressed', isSelected ? 'true' : 'false');
         chip.style.background = isSelected
-          ? 'var(--ha-color-fill-primary-normal-hover,#0f4c5f)'
+          ? 'var(--ha-color-fill-primary-normal-hover,#004156)'
           : 'transparent';
         chip.style.borderColor = isSelected
-          ? 'var(--ha-color-fill-primary-normal-hover,#0f4c5f)'
-          : 'var(--ha-color-border-neutral-quiet,var(--divider-color,#e0e0e0))';
+          ? 'transparent'
+          : 'var(--outline-color,rgba(225,225,225,0.12))';
+        chip.style.paddingInlineStart = isSelected ? '8px' : '12px';
         chip.style.color = isSelected
           ? 'var(--white-color,#ffffff)'
           : 'var(--primary-color,#03a9f4)';
-        chip.style.fontWeight = isSelected ? '600' : '500';
+        chip.style.fontWeight = '500';
         if (chip._haTweaksCheck) {
           chip._haTweaksCheck.style.display = isSelected ? 'block' : 'none';
         }
@@ -6930,7 +6987,7 @@
       const headline = document.createElement('div');
       headline.textContent = 'Nothing found';
       headline.style.cssText =
-        'font-size:14px;font-weight:500;color:var(--primary-text-color,#212121);';
+        'font-size:14px;font-weight:400;color:var(--primary-text-color,#212121);';
       const supporting = document.createElement('div');
       supporting.textContent = 'Try a different search or filter.';
       supporting.style.cssText = 'margin-top:2px;font-size:12px;color:inherit;';
@@ -6958,7 +7015,7 @@
         'gap:16px',
         'width:100%',
         'min-height:64px',
-        'padding:10px 20px',
+        'padding:12px 16px',
         'border:0',
         'background:transparent',
         'color:var(--primary-text-color,#212121)',
@@ -6967,6 +7024,10 @@
         'font-family:inherit',
         'outline:none',
       ].join(';');
+      row.addEventListener('mousedown', function (ev) {
+        // Keep the quick-bar search field focused, like HA's virtual list.
+        if (typeof ev.preventDefault === 'function') ev.preventDefault();
+      });
       row.addEventListener('mouseenter', function () {
         row.style.background = 'var(--ha-color-fill-neutral-quiet-hover,var(--secondary-background-color,#eeeeee))';
       });
@@ -6977,7 +7038,7 @@
       const icon = document.createElement('ha-icon');
       icon.setAttribute('icon', entry.icon);
       icon.style.cssText =
-        'flex:0 0 auto;--mdc-icon-size:24px;' +
+        'flex:0 0 auto;--mdc-icon-size:24px;margin:4px;' +
         'color:var(--secondary-text-color,#727272);';
       row.appendChild(icon);
 
@@ -6986,7 +7047,7 @@
       const headline = document.createElement('div');
       headline.textContent = entry.title;
       headline.style.cssText =
-        'font-size:14px;font-weight:500;line-height:1.35;' +
+        'font-size:14px;font-weight:400;line-height:1.35;' +
         'color:var(--primary-text-color,#212121);' +
         'overflow:hidden;text-overflow:ellipsis;white-space:nowrap;';
       const supporting = document.createElement('div');
