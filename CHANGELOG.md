@@ -5,6 +5,12 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.15.0] - 2026-11-06
+
+### Changed
+- Settings list now nests menu items under their parent tweak instead of mixing them into one flat list. Child rows appear only while their parent tweak is enabled; turning the parent off collapses/hides them, and turning it back on restores them.
+- Filter chips are now `All` and `Tweaks`; the separate `Menu items` chip and separator were removed. Search still finds nested items and keeps matching parents visible.
+
 ## [1.14.3] - 2026-11-06
 
 ### Changed

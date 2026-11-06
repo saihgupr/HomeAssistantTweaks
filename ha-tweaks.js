@@ -1,5 +1,5 @@
 /*
- * HA Tweaks v1.14.3 - frontend QoL tweaks for Home Assistant
+ * HA Tweaks v1.15.0 - frontend QoL tweaks for Home Assistant
  * Single-file, zero-dependency frontend plugin for Home Assistant.
  * Load via configuration.yaml:
  *   frontend:
@@ -17,7 +17,7 @@
  */
 
 (() => {
-  const HA_TWEAKS_VERSION = '1.14.3';
+  const HA_TWEAKS_VERSION = '1.15.0';
   const CONFIG_KEY = 'ha_tweaks_config';
   // Pre-1.9.0 keys: read once as fallback so existing users keep their toggles.
   const LEGACY_CONFIG_KEY = 'ha_mods_config';
@@ -6762,18 +6762,7 @@
       [
         { id: 'all', label: 'All' },
         { id: 'tweak', label: 'Tweaks' },
-        { id: 'separator', separator: true },
-        { id: 'item', label: 'Menu items' },
       ].forEach(function (def) {
-        if (def.separator) {
-          const separator = document.createElement('div');
-          separator.setAttribute('aria-hidden', 'true');
-          separator.style.cssText =
-            'flex:0 0 auto;width:0;height:32px;' +
-            'border:0;border-left:1px solid var(--ha-color-border-neutral-quiet,var(--divider-color,#e0e0e0));';
-          chips.appendChild(separator);
-          return;
-        }
         const chip = document.createElement('button');
         chip.type = 'button';
         chip.setAttribute('tabindex', '-1');
@@ -6865,10 +6854,25 @@
       }
     },
 
-    _getEntries: function () {
-      const entries = [];
-      TweakRegistry.tweaks.forEach(function (tweak) {
-        entries.push({
+    _makeItemEntry: function (tweak, item) {
+      return {
+        key: 'item:' + tweak.id + '.' + item.id,
+        type: 'item',
+        group: 'item',
+        id: tweak.id + '.' + item.id,
+        title: item.label,
+        subtitle: 'Menu item in ' + tweak.name,
+        parentTitle: tweak.name,
+        icon: MENU_ITEM_ICONS[item.id] || SETTINGS_ICONS[tweak.id] || 'mdi:circle-medium',
+        enabled: isItemEnabled(tweak.id, item.id),
+        tweak: tweak,
+        item: item,
+      };
+    },
+
+    _getGroups: function () {
+      return TweakRegistry.tweaks.map((tweak) => {
+        const parent = {
           key: 'tweak:' + tweak.id,
           type: 'tweak',
           group: 'tweak',
@@ -6880,48 +6884,64 @@
           enabled: !!TweakRegistry.enabled[tweak.id],
           tweak: tweak,
           item: null,
-        });
-        (tweak.menuItems || []).forEach(function (item) {
-          entries.push({
-            key: 'item:' + tweak.id + '.' + item.id,
-            type: 'item',
-            group: 'item',
-            id: tweak.id + '.' + item.id,
-            title: item.label,
-            subtitle: 'Menu item in ' + tweak.name,
-            parentTitle: tweak.name,
-            icon: MENU_ITEM_ICONS[item.id] || SETTINGS_ICONS[tweak.id] || 'mdi:circle-medium',
-            enabled: isItemEnabled(tweak.id, item.id),
-            tweak: tweak,
-            item: item,
-          });
-        });
+        };
+        const children = (tweak.menuItems || []).map((item) =>
+          this._makeItemEntry(tweak, item)
+        );
+        return { parent, children };
       });
-      return entries;
     },
 
-    _filteredEntries: function () {
-      const section = this._section;
-      const terms = String(this._query || '')
+    _terms: function () {
+      return String(this._query || '')
         .trim()
         .toLowerCase()
         .split(/\s+/)
         .filter(Boolean);
-      return this._getEntries().filter(function (entry) {
-        if (section !== 'all' && entry.group !== section) return false;
-        if (!terms.length) return true;
-        const haystack = [
-          entry.title,
-          entry.subtitle,
-          entry.id,
-          entry.parentTitle,
-          entry.type,
-          entry.group,
-        ].join(' ').toLowerCase();
-        return terms.every(function (term) {
-          return haystack.indexOf(term) !== -1;
-        });
+    },
+
+    _matchesEntry: function (entry, terms) {
+      if (!terms.length) return true;
+      const haystack = [
+        entry.title,
+        entry.subtitle,
+        entry.id,
+        entry.parentTitle,
+        entry.type,
+        entry.group,
+      ].join(' ').toLowerCase();
+      return terms.every(function (term) {
+        return haystack.indexOf(term) !== -1;
       });
+    },
+
+    _filteredGroups: function () {
+      const section = this._section;
+      const terms = this._terms();
+      return this._getGroups()
+        .map((group) => {
+          const parent = group.parent;
+          const parentMatches = this._matchesEntry(parent, terms);
+
+          if (section === 'tweak') {
+            return parentMatches ? { parent, children: [] } : null;
+          }
+
+          if (!parent.enabled) {
+            // Parent off: the whole nested group is collapsed, even for search.
+            return parentMatches ? { parent, children: [] } : null;
+          }
+
+          if (parentMatches) {
+            return { parent, children: group.children };
+          }
+
+          const matchingChildren = group.children.filter((child) =>
+            this._matchesEntry(child, terms)
+          );
+          return matchingChildren.length ? { parent, children: matchingChildren } : null;
+        })
+        .filter(Boolean);
     },
 
     _render: function () {
@@ -6964,13 +6984,25 @@
           break;
         }
       }
-      const entries = this._filteredEntries();
-      if (!entries.length) {
+      const groups = this._filteredGroups();
+      if (!groups.length) {
         list.appendChild(this._makeEmptyState());
         return;
       }
-      entries.forEach(function (entry) {
-        list.appendChild(self._makeRow(entry));
+      groups.forEach(function (group) {
+        list.appendChild(self._makeRow(group.parent));
+        if (!group.children.length) return;
+        const nested = document.createElement('div');
+        nested.setAttribute('data-ha-tweaks-children', group.parent.id);
+        nested.style.cssText = [
+          'margin-left:32px',
+          'padding-left:16px',
+          'border-left:1px solid var(--ha-color-border-neutral-quiet,var(--divider-color,#e0e0e0))',
+        ].join(';');
+        group.children.forEach(function (child) {
+          nested.appendChild(self._makeRow(child));
+        });
+        list.appendChild(nested);
       });
     },
 
@@ -7001,6 +7033,7 @@
     _makeRow: function (entry) {
       const self = this;
       const enabled = !!entry.enabled;
+      const isChild = entry.group === 'item';
       const row = document.createElement('button');
       row.type = 'button';
       row.setAttribute('role', 'switch');
@@ -7008,6 +7041,9 @@
       row.setAttribute('aria-checked', enabled ? 'true' : 'false');
       row.setAttribute('data-ha-tweaks-setting-row', entry.key);
       row.setAttribute('data-ha-tweaks-group', entry.group);
+      if (isChild && entry.tweak) {
+        row.setAttribute('data-ha-tweaks-parent', entry.tweak.id);
+      }
       row.title = (enabled ? 'Disable ' : 'Enable ') + entry.title;
       row.style.cssText = [
         'display:flex',
@@ -7015,7 +7051,7 @@
         'gap:16px',
         'width:100%',
         'min-height:64px',
-        'padding:12px 16px',
+        isChild ? 'padding:12px 12px 12px 16px' : 'padding:12px 16px',
         'border:0',
         'background:transparent',
         'color:var(--primary-text-color,#212121)',
@@ -7117,6 +7153,10 @@
         }
         // Keep data in sync with what is painted; no focus is moved.
         entry.enabled = next;
+        if (entry.group === 'tweak') {
+          // Child rows are derived from the parent switch; rebuild the list.
+          self._renderList();
+        }
       });
 
       return row;
