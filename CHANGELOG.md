@@ -5,6 +5,15 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.13.5] - 2026-11-05
+
+### Changed
+- Settings header now shows the full version (`Home Assistant Tweaks v1.13.5`), matching `HATweaks.version`.
+
+### Removed
+- Context menus no longer expose menu item buttons to the keyboard tab order and no longer show the `:focus-visible` outline. They remain pointer/touch menus and are now labelled as plain button groups rather than menus.
+- Settings modal controls are also out of the keyboard tab order and no longer show focus outlines. The modal is pointer/touch-driven; Escape and the X button still close it.
+
 ## [1.13.4] - 2026-11-05
 
 ### Fixed
