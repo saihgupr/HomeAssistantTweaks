@@ -1,5 +1,5 @@
 /*
- * HA Tweaks v1.15.1 - frontend QoL tweaks for Home Assistant
+ * HA Tweaks v1.15.3 - frontend QoL tweaks for Home Assistant
  * Single-file, zero-dependency frontend plugin for Home Assistant.
  * Load via configuration.yaml:
  *   frontend:
@@ -17,7 +17,7 @@
  */
 
 (() => {
-  const HA_TWEAKS_VERSION = '1.15.1';
+  const HA_TWEAKS_VERSION = '1.15.3';
   const CONFIG_KEY = 'ha_tweaks_config';
   // Pre-1.9.0 keys: read once as fallback so existing users keep their toggles.
   const LEGACY_CONFIG_KEY = 'ha_mods_config';
@@ -3402,6 +3402,20 @@
           return;
         }
         if (op === 'yaml') {
+          // Match the row's own overflow menu: toggle that row's YAML mode and
+          // open its options sidebar. The native handler passes the dropdown
+          // item, and the row only opens the sidebar when that argument is
+          // truthy, so pass a marker instead of calling with no arguments.
+          const rowEl = info.element;
+          try {
+            if (rowEl && typeof rowEl._toggleYamlMode === 'function') {
+              rowEl._toggleYamlMode(true);
+              return;
+            }
+          } catch (e) {
+            console.warn(LOG_TAG, 'editor row yaml mode toggle failed', e);
+          }
+
           let yamlSnap = null;
           let yamlFull = null;
           let yamlIdx = -1;
@@ -3769,7 +3783,8 @@
 
       let yamlMode = false;
       try {
-        yamlMode = !!info.element.yamlMode;
+        yamlMode =
+          info.element._yamlMode === true || info.element.yamlMode === true;
       } catch (e) {
         yamlMode = false;
       }
@@ -3833,11 +3848,11 @@
 
       const fg = 'var(--primary-text-color,#212121)';
       addItem('duplicate', 'mdi:content-duplicate', 'Duplicate', fg, null);
-      addItem('copy', 'mdi:content-copy', 'Copy', fg, '⌘/Ctrl+C');
+      addItem('copy', 'mdi:content-copy', 'Copy', fg, null);
       if (this._canPaste(info)) {
-        addItem('paste', 'mdi:content-paste', 'Paste', fg, '⌘/Ctrl+V');
+        addItem('paste', 'mdi:content-paste', 'Paste', fg, null);
       }
-      addItem('cut', 'mdi:content-cut', 'Cut', fg, '⌘/Ctrl+X');
+      addItem('cut', 'mdi:content-cut', 'Cut', fg, null);
       if (yamlMode) {
         addItem('yaml', 'mdi:format-list-bulleted', 'Edit in visual editor', fg, null);
       } else {
@@ -3851,7 +3866,7 @@
       if (isAction) {
         addItem('run', 'mdi:play', 'Run action', fg, null);
       }
-      addItem('delete', 'mdi:delete', 'Delete', 'var(--error-color,#db4437)', '⌘/Ctrl+Del');
+      addItem('delete', 'mdi:delete', 'Delete', 'var(--error-color,#db4437)', null);
 
       // Only enabled items reach the menu, separators between them.
       const visible = built.filter(function (it) {

@@ -5,10 +5,18 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [1.15.3] - 2026-11-06
 
-### Changed
+### Fixed
+- Editor row context menu `Edit in YAML` now opens that row's options sidebar in YAML mode, matching the row's own overflow menu, instead of switching the whole automation/script editor to YAML.
+
+## [1.15.2] - 2026-11-06
+
+### Added
 - Added a stable `ha-tweaks-loader.js` entry point. `frontend.extra_module_url` now points at the loader, which reads the current `ha-tweaks.js` ETag and imports that build. Deploying an update no longer requires editing `configuration.yaml` or restarting Home Assistant.
+
+### Fixed
+- Removed non-functional shortcut hints from the editor row context menu (`Copy`, `Paste`, `Cut`, and `Delete`).
 
 ## [1.15.1] - 2026-11-06
 
