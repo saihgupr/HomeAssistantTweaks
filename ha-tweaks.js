@@ -1,5 +1,5 @@
 /*
- * HA Tweaks v1.16.1 - frontend QoL tweaks for Home Assistant
+ * HA Tweaks v1.16.2 - frontend QoL tweaks for Home Assistant
  * Single-file, zero-dependency frontend plugin for Home Assistant.
  * Load via configuration.yaml:
  *   frontend:
@@ -17,7 +17,7 @@
  */
 
 (() => {
-  const HA_TWEAKS_VERSION = '1.16.1';
+  const HA_TWEAKS_VERSION = '1.16.2';
   const CONFIG_KEY = 'ha_tweaks_config';
   // Pre-1.9.0 keys: read once as fallback so existing users keep their toggles.
   const LEGACY_CONFIG_KEY = 'ha_mods_config';
@@ -5098,6 +5098,21 @@
         }
       }
 
+      let caret = null;
+      if (
+        typeof ev.clientX === 'number' &&
+        typeof ev.clientY === 'number' &&
+        (ev.clientX > 0 || ev.clientY > 0)
+      ) {
+        caret = this._caretOffsetFromPoint(
+          hit.title,
+          slot,
+          ev.clientX,
+          ev.clientY,
+          alias
+        );
+      }
+
       const doc = hit.subpage.ownerDocument || document;
       const input = doc.createElement('input');
       input.type = 'text';
@@ -5179,10 +5194,73 @@
 
       try {
         input.focus();
-        const end = input.value.length;
-        input.setSelectionRange(end, end);
+        const max = input.value.length;
+        const pos = caret === null ? max : Math.max(0, Math.min(max, caret));
+        input.setSelectionRange(pos, pos);
       } catch (e) {
         // ignore
+      }
+    },
+
+    // Map the click point to a caret offset in the title text. The native
+    // caret APIs do not see into shadow roots, so measure each character's
+    // client rect with a Range and pick the nearest boundary.
+    _caretOffsetFromPoint: function (title, slot, clientX, clientY, value) {
+      try {
+        if (!title || typeof clientX !== 'number' || typeof clientY !== 'number') {
+          return null;
+        }
+        const root = slot || title;
+        const doc = title.ownerDocument || document;
+        let textNode = null;
+        const walker = doc.createTreeWalker(root, NodeFilter.SHOW_TEXT);
+        while (walker.nextNode()) {
+          const node = walker.currentNode;
+          if (node.textContent && node.textContent.trim()) {
+            textNode = node;
+            break;
+          }
+        }
+        if (!textNode) return null;
+
+        const text = textNode.textContent;
+        if (text !== value) return null;
+        if (!text) return 0;
+
+        const range = doc.createRange();
+        let best = null;
+        for (let i = 0; i < text.length; i++) {
+          try {
+            range.setStart(textNode, i);
+            range.setEnd(textNode, i + 1);
+            const rect = range.getBoundingClientRect();
+            if (!rect || (!rect.width && !rect.height)) continue;
+            const dx =
+              clientX < rect.left
+                ? rect.left - clientX
+                : clientX > rect.right
+                  ? clientX - rect.right
+                  : 0;
+            const dy =
+              clientY < rect.top
+                ? rect.top - clientY
+                : clientY > rect.bottom
+                  ? clientY - rect.bottom
+                  : 0;
+            const distance = dx * dx + dy * dy;
+            if (!best || distance < best.distance) {
+              best = { distance: distance, rect: rect, index: i };
+            }
+          } catch (e) {
+            // ignore
+          }
+        }
+        if (!best) return null;
+
+        const center = (best.rect.left + best.rect.right) / 2;
+        return clientX < center ? best.index : best.index + 1;
+      } catch (e) {
+        return null;
       }
     },
 
