@@ -1,5 +1,5 @@
 /*
- * HA Tweaks v1.15.3 - frontend QoL tweaks for Home Assistant
+ * HA Tweaks v1.16.0 - frontend QoL tweaks for Home Assistant
  * Single-file, zero-dependency frontend plugin for Home Assistant.
  * Load via configuration.yaml:
  *   frontend:
@@ -17,7 +17,7 @@
  */
 
 (() => {
-  const HA_TWEAKS_VERSION = '1.15.3';
+  const HA_TWEAKS_VERSION = '1.16.0';
   const CONFIG_KEY = 'ha_tweaks_config';
   // Pre-1.9.0 keys: read once as fallback so existing users keep their toggles.
   const LEGACY_CONFIG_KEY = 'ha_mods_config';
@@ -5022,6 +5022,278 @@
   };
 
   /* ================================================================
+   * Tweak: Inline editor title rename
+   * - Click the automation/script name in the editor header and edit it
+   *   in place, like a normal text field. Enter or blur commits, Escape
+   *   cancels.
+   * - Updates config.alias and marks the editor dirty, matching the
+   *   native Rename menu item. The normal Save action persists it.
+   * ================================================================ */
+  const InlineTitleRenameTweak = {
+    id: 'inline-title-rename',
+    name: 'Rename by clicking the title',
+    description:
+      'Click the automation or script name in the editor header to edit it in place. Enter or blur commits the name, Escape cancels, and the normal Save action persists it.',
+    defaultEnabled: true,
+
+    _onClick: null,
+    _active: null,
+
+    init: function () {
+      const self = this;
+      this._onClick = function (ev) {
+        try {
+          self._handleClick(ev);
+        } catch (e) {
+          console.warn(LOG_TAG, 'inline-title-rename click failed', e);
+        }
+      };
+      window.addEventListener('click', this._onClick, { capture: true });
+    },
+
+    destroy: function () {
+      if (this._onClick) {
+        window.removeEventListener('click', this._onClick, { capture: true });
+        this._onClick = null;
+      }
+      const active = this._active;
+      if (active) this._finish(active, false);
+    },
+
+    _handleClick: function (ev) {
+      if (!ev || ev.defaultPrevented) return;
+      if (typeof ev.button === 'number' && ev.button !== 0) return;
+      if (ev.metaKey || ev.ctrlKey || ev.altKey || ev.shiftKey) return;
+      if (this._active) return;
+      if (!isEditorPath(window.location.pathname)) return;
+
+      const path =
+        typeof ev.composedPath === 'function' ? ev.composedPath() : [ev.target];
+      const hit = this._findTitle(path);
+      if (!hit) return;
+
+      const editor = hit.editor;
+      try {
+        if (!editor.config) return;
+        if (editor.readOnly) return;
+        if (editor.mode && editor.mode !== 'gui') return;
+        if (!editor.automationId && !editor.scriptId) return;
+      } catch (e) {
+        return;
+      }
+
+      const alias =
+        typeof editor.config.alias === 'string' ? editor.config.alias : '';
+
+      // Do not hijack the header if another component is already supplying
+      // slotted content for it.
+      const slot = hit.title.querySelector
+        ? hit.title.querySelector('slot[name="header"]')
+        : null;
+      if (slot && typeof slot.assignedNodes === 'function') {
+        try {
+          if (slot.assignedNodes().length) return;
+        } catch (e) {
+          // ignore
+        }
+      }
+
+      const doc = hit.subpage.ownerDocument || document;
+      const input = doc.createElement('input');
+      input.type = 'text';
+      input.value = alias;
+      input.setAttribute('data-ha-tweaks', 'inline-title-input');
+      input.setAttribute(
+        'aria-label',
+        editor.tagName === 'HA-SCRIPT-EDITOR' ? 'Script name' : 'Automation name'
+      );
+      input.setAttribute('autocomplete', 'off');
+      input.setAttribute('spellcheck', 'false');
+      input.setAttribute('enterkeyhint', 'done');
+      input.style.cssText = [
+        'font:inherit',
+        'color:inherit',
+        'background:transparent',
+        'border:0',
+        'border-bottom:1px solid var(--primary-color,#03a9f4)',
+        'border-radius:0',
+        'appearance:none',
+        'padding:0',
+        'margin:0',
+        'height:100%',
+        'box-sizing:border-box',
+        'outline:none',
+        'display:inline-block',
+        'field-sizing:content',
+        'width:auto',
+        'min-width:1ch',
+        'max-width:100%',
+      ].join(';');
+
+      if (slot) slot.style.display = 'none';
+      hit.title.appendChild(input);
+
+      const state = {
+        input: input,
+        slot: slot,
+        subpage: hit.subpage,
+        editor: editor,
+        original: alias,
+        done: false,
+      };
+      this._active = state;
+
+      const self = this;
+      input.addEventListener('keydown', function (event) {
+        try {
+          if (event.key === 'Enter') {
+            event.preventDefault();
+            event.stopPropagation();
+            self._finish(state, true);
+          } else if (event.key === 'Escape') {
+            event.preventDefault();
+            event.stopPropagation();
+            self._finish(state, false);
+          }
+        } catch (e) {
+          // ignore
+        }
+      });
+      input.addEventListener('blur', function () {
+        try {
+          self._finish(state, true);
+        } catch (e) {
+          // ignore
+        }
+      });
+
+      if (ev.cancelable) ev.preventDefault();
+      if (typeof ev.stopPropagation === 'function') ev.stopPropagation();
+      if (typeof ev.stopImmediatePropagation === 'function') {
+        try {
+          ev.stopImmediatePropagation();
+        } catch (e) {
+          // ignore
+        }
+      }
+
+      try {
+        input.focus();
+        input.select();
+      } catch (e) {
+        // ignore
+      }
+    },
+
+    _finish: function (state, commit) {
+      if (!state || state.done) return;
+      state.done = true;
+      if (this._active === state) this._active = null;
+
+      let value = '';
+      try {
+        value = String(state.input.value || '').trim();
+      } catch (e) {
+        value = '';
+      }
+
+      try {
+        if (state.input.parentNode) {
+          state.input.parentNode.removeChild(state.input);
+        }
+      } catch (e) {
+        // ignore
+      }
+      try {
+        if (state.slot) state.slot.style.display = '';
+      } catch (e) {
+        // ignore
+      }
+
+      if (!commit || !value || value === state.original) return;
+
+      const editor = state.editor;
+      try {
+        const config = Object.assign({}, editor.config, { alias: value });
+        editor.config = config;
+        if (typeof editor._updateDirtyState === 'function') {
+          editor._updateDirtyState({
+            config: config,
+            entityRegistryUpdate: editor.entityRegistryUpdate,
+          });
+        }
+        if (typeof editor.requestUpdate === 'function') editor.requestUpdate();
+        state.subpage.header = value;
+      } catch (e) {
+        console.warn(LOG_TAG, 'inline-title-rename update failed', e);
+      }
+    },
+
+    _findTitle: function (path) {
+      let subpage = null;
+      let editor = null;
+      let title = null;
+      let headerSlot = null;
+
+      for (let i = 0; i < path.length; i++) {
+        const el = path[i];
+        if (!el || typeof el !== 'object') continue;
+        const tag = el.tagName ? String(el.tagName).toUpperCase() : '';
+        if (tag === 'HASS-SUBPAGE') subpage = el;
+        if (tag === 'HA-AUTOMATION-EDITOR' || tag === 'HA-SCRIPT-EDITOR') {
+          editor = el;
+        }
+        if (el.classList && el.classList.contains('main-title')) title = el;
+        if (
+          tag === 'SLOT' &&
+          el.getAttribute &&
+          el.getAttribute('name') === 'header'
+        ) {
+          headerSlot = el;
+        }
+      }
+
+      if (!title && headerSlot && headerSlot.parentElement) {
+        title = headerSlot.parentElement;
+      }
+      if (!subpage || !editor || !title) return null;
+      if (subpage.shadowRoot && !subpage.shadowRoot.contains(title)) return null;
+
+      // The header belongs to the editor page itself. Nested editors (for
+      // example a script field editor) may also render hass-subpage, so only
+      // take titles whose root host is the automation/script editor.
+      try {
+        const root = subpage.getRootNode && subpage.getRootNode();
+        if (root && root.host && root.host !== editor) return null;
+      } catch (e) {
+        // ignore
+      }
+
+      let inTitle = false;
+      for (let i = 0; i < path.length; i++) {
+        const el = path[i];
+        if (!el || typeof el !== 'object') continue;
+        if (el === title) {
+          inTitle = true;
+          break;
+        }
+        if (
+          el.tagName &&
+          String(el.tagName).toUpperCase() === 'SLOT' &&
+          title.contains &&
+          title.contains(el)
+        ) {
+          inTitle = true;
+          break;
+        }
+      }
+      if (!inTitle) return null;
+
+      return { subpage: subpage, editor: editor, title: title };
+    },
+  };
+
+  /* ================================================================
    * Tweak 4: Right-click = long press (Lovelace)
    * - A mouse right-click on a card, entity row, tile, badge, or picture
    *   element triggers the same hold action a long press would: the
@@ -6571,6 +6843,7 @@
     'editor-row-context-menu': 'mdi:form-select',
     'dashboard-empty-menu': 'mdi:view-dashboard',
     'auto-collapse-editor': 'mdi:arrow-collapse-all',
+    'inline-title-rename': 'mdi:rename-box',
     'right-click-hold': 'mdi:mouse-right-click',
     'chip-active-for': 'mdi:mushroom',
     'sidebar-drag': 'mdi:drag',
@@ -7203,6 +7476,7 @@
   TweakRegistry.register(AutomationContextMenuTweak);
   TweakRegistry.register(EditorRowContextMenuTweak);
   TweakRegistry.register(AutoCollapseEditorTweak);
+  TweakRegistry.register(InlineTitleRenameTweak);
   TweakRegistry.register(DashboardEmptyMenuTweak);
   TweakRegistry.register(RightClickHoldTweak);
   TweakRegistry.register(ChipActiveForTweak);

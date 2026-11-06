@@ -16,6 +16,7 @@ Home Assistant Tweaks is a lightweight, native-feeling collection of quality-of-
 
 - **Context Menus Anywhere:** Right-click automations, scripts, editor blocks, and empty dashboard canvas for instant actions.
 - **Calmer Automation Editor:** Automations and scripts open collapsed by default, complete with a Collapse All / Expand All toolbar button.
+- **Inline Editor Titles:** Click an automation or script name in the editor header to rename it in place. Enter or blur commits the name, Escape cancels.
 - **Instant Hold Actions:** Right-click cards, badges, and tiles to trigger hold actions immediately without the default 500 ms wait.
 - **Drag-to-Reorder Sidebar:** Hold and drag sidebar items into any order you like. Saves to Home Assistant's own sidebar order, so it syncs across devices and matches Edit sidebar.
 - **Marketplace in Sidebar:** Native `panel_custom` sidebar entry that redirects to the Marketplace, visible in the sidebar and Edit sidebar (admins only).
@@ -39,7 +40,7 @@ Home Assistant Tweaks is a lightweight, native-feeling collection of quality-of-
    ```
 3. Restart Home Assistant once, then reload the page. Confirm in the developer console (`F12`):
    ```
-   [HA Tweaks v1.15.3] Initialized
+   [HA Tweaks v1.16.0] Initialized
    ```
    The loader probes the installed `ha-tweaks.js` for its current ETag and imports that build. After this one-time setup, plugin updates only need a page reload, not a Home Assistant restart.
 
@@ -53,7 +54,7 @@ Home Assistant Tweaks is a lightweight, native-feeling collection of quality-of-
      extra_module_url:
        - /local/ha-tweaks-loader.js
    ```
-3. Restart Home Assistant once, then reload. Confirm `[HA Tweaks v1.15.3] Initialized` in the console.
+3. Restart Home Assistant once, then reload. Confirm `[HA Tweaks v1.16.0] Initialized` in the console.
 
 > **Note:** The loader keeps the `extra_module_url` stable. It probes `/local/ha-tweaks.js` for its current ETag and imports that revision, so deploying a new `ha-tweaks.js` only needs a page reload, not a Home Assistant restart. Keep both files in the same directory.
 
@@ -141,7 +142,7 @@ If a tweak is not appearing or behaving as expected:
 2. **Verify Initialization:**
    Check the developer console (`F12` or `Cmd + Option + I`). You should see:
    ```text
-   [HA Tweaks v1.15.3] Initialized
+   [HA Tweaks v1.16.0] Initialized
    ```
    If not present, check that `extra_module_url` is added under `frontend:` in `configuration.yaml` and not just as a Lovelace dashboard resource.
 3. **Inspect Settings & Cloud Sync:**
