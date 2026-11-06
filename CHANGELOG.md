@@ -5,6 +5,19 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.14.2] - 2026-11-06
+
+### Changed
+- Settings search placeholder and accessible label now include the full running version, for example `Search Home Assistant Tweaks v1.14.2`.
+
+## [1.14.1] - 2026-11-06
+
+### Changed
+- Settings hotkey is now plain `T` instead of `Cmd/Ctrl+Shift+M`. It matches Home Assistant's `c` / `e` shortcut guard: disabled when HA shortcuts are disabled, ignored for selected text, IME composition, auto-repeat, and editable targets such as inputs, textareas, selects, code editors and contenteditable regions.
+
+### Added
+- Settings search field is focused automatically when the popup opens, so typing starts immediately.
+
 ## [1.14.0] - 2026-11-06
 
 ### Changed

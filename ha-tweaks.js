@@ -1,5 +1,5 @@
 /*
- * HA Tweaks v1.14.0 - frontend QoL tweaks for Home Assistant
+ * HA Tweaks v1.14.2 - frontend QoL tweaks for Home Assistant
  * Single-file, zero-dependency frontend plugin for Home Assistant.
  * Load via configuration.yaml:
  *   frontend:
@@ -17,7 +17,7 @@
  */
 
 (() => {
-  const HA_TWEAKS_VERSION = '1.14.0';
+  const HA_TWEAKS_VERSION = '1.14.2';
   const CONFIG_KEY = 'ha_tweaks_config';
   // Pre-1.9.0 keys: read once as fallback so existing users keep their toggles.
   const LEGACY_CONFIG_KEY = 'ha_mods_config';
@@ -708,7 +708,7 @@
     id: 'automation-context-menu',
     name: 'Automation + script context menu',
     description:
-      'Right-click (or long-press on touch) an automation or script entity in dashboards or configuration tables. Actions toggleable in settings (Cmd/Ctrl+Shift+M).',
+      'Right-click (or long-press on touch) an automation or script entity in dashboards or configuration tables. Actions toggleable in settings (T).',
     defaultEnabled: true,
     menuItems: [
       { id: 'edit', label: 'Edit' },
@@ -1612,7 +1612,7 @@
       });
       if (!visible.length) {
         self.closeAll();
-        toast('All menu items are off. Press Cmd/Ctrl+Shift+M to choose what shows.');
+        toast('All menu items are off. Press T to choose what shows.');
         return;
       }
       visible.forEach(function (it, i) {
@@ -3859,7 +3859,7 @@
       });
       if (!visible.length) {
         self.closeAll();
-        toast('All menu items are off. Press Cmd/Ctrl+Shift+M to choose what shows.');
+        toast('All menu items are off. Press T to choose what shows.');
         return;
       }
       visible.forEach(function (it, i) {
@@ -3923,7 +3923,7 @@
     id: 'dashboard-empty-menu',
     name: 'Dashboard empty-space menu',
     description:
-      'Right-click (or long-press on touch) empty dashboard space for New Automation / New Script. Each item toggleable in settings (Cmd/Ctrl+Shift+M).',
+      'Right-click (or long-press on touch) empty dashboard space for New Automation / New Script. Each item toggleable in settings (T).',
     defaultEnabled: true,
     menuItems: [
       { id: 'new-automation', label: 'New Automation' },
@@ -4387,7 +4387,7 @@
       });
       if (!visible.length) {
         self.closeAll();
-        toast('All menu items are off. Press Cmd/Ctrl+Shift+M to choose what shows.');
+        toast('All menu items are off. Press T to choose what shows.');
         return;
       }
       visible.forEach(function (it, i) {
@@ -6659,8 +6659,8 @@
       const input = document.createElement('input');
       input.type = 'search';
       input.setAttribute('tabindex', '-1');
-      input.setAttribute('aria-label', 'Search Home Assistant Tweaks settings');
-      input.placeholder = 'Search Home Assistant Tweaks';
+      input.setAttribute('aria-label', 'Search Home Assistant Tweaks v' + HA_TWEAKS_VERSION);
+      input.placeholder = 'Search Home Assistant Tweaks v' + HA_TWEAKS_VERSION;
       input.autocomplete = 'off';
       input.spellcheck = false;
       input.style.cssText = [
@@ -6793,6 +6793,20 @@
       window.addEventListener('keydown', this._onKeyDown, { capture: true });
 
       this._render();
+
+      // Match HA's quick bar: the search field is ready for typing as soon
+      // as the popup appears. This is programmatic focus, not a tab stop.
+      try {
+        input.focus({ preventScroll: true });
+        if (typeof input.select === 'function') input.select();
+      } catch (e) {
+        try {
+          input.focus();
+          if (typeof input.select === 'function') input.select();
+        } catch (ignore) {
+          // Focus is best-effort; the UI still works with pointer/touch.
+        }
+      }
     },
 
     _getEntries: function () {
@@ -7081,14 +7095,95 @@
   window.addEventListener('location-changed', handleRouteChange);
   window.addEventListener('popstate', handleRouteChange);
 
-  // Settings hotkey: Cmd/Ctrl+Shift+M toggles the flags page. Registered once
-  // at boot, independent of any single tweak.
+  // Settings hotkey: plain T toggles the flags page. Registered once at
+  // boot, independent of any single tweak. It follows Home Assistant's
+  // c/e shortcut guard: disabled when HA shortcuts are disabled, ignored
+  // for selected text, IME composition, auto-repeat and editable targets.
+  function isShortcutIgnoredTarget(target) {
+    try {
+      return !!(
+        target &&
+        target !== window &&
+        typeof target.matches === 'function' &&
+        target.matches('[contenteditable],input,select,textarea')
+      );
+    } catch (e) {
+      return false;
+    }
+  }
+
+  function canOverrideAlphanumericInput(path) {
+    if (!Array.isArray(path)) return true;
+
+    for (let i = 0; i < path.length; i++) {
+      const el = path[i];
+      if (!el || typeof el !== 'object' || !('tagName' in el)) continue;
+      const tag = String(el.tagName || '').toUpperCase();
+      if (tag === 'HA-MENU' || tag === 'HA-CODE-EDITOR') return false;
+    }
+
+    const el = path[0];
+    if (!el || typeof el !== 'object') return true;
+
+    const tag = String(el.tagName || '').toUpperCase();
+    const parentTag = el.parentElement && el.parentElement.tagName
+      ? String(el.parentElement.tagName).toUpperCase()
+      : '';
+
+    if (
+      tag === 'TEXTAREA' ||
+      el.isContentEditable ||
+      parentTag === 'HA-SELECT' ||
+      parentTag === 'HA-DROPDOWN'
+    ) {
+      return false;
+    }
+
+    if (tag !== 'INPUT') return true;
+
+    switch (String(el.type || 'text').toLowerCase()) {
+      case 'button':
+      case 'checkbox':
+      case 'hidden':
+      case 'radio':
+      case 'range':
+        return true;
+      default:
+        return false;
+    }
+  }
+
+  function hasSelectedText() {
+    try {
+      const selection = window.getSelection && window.getSelection();
+      return !!(selection && selection.toString());
+    } catch (e) {
+      return false;
+    }
+  }
+
   window.addEventListener('keydown', function (ev) {
     try {
-      if (ev && ev.code === 'KeyM' && ev.shiftKey && (ev.metaKey || ev.ctrlKey)) {
-        if (typeof ev.preventDefault === 'function') ev.preventDefault();
-        SettingsModal.toggle();
-      }
+      if (!ev || ev.defaultPrevented || ev.repeat || ev.isComposing) return;
+      if (ev.shiftKey || ev.metaKey || ev.altKey || ev.ctrlKey) return;
+
+      const key = String(ev.key || '').toLowerCase();
+      const code = String(ev.code || '').toLowerCase();
+      if (key !== 't' && code !== 'keyt') return;
+
+      if (isShortcutIgnoredTarget(ev.target)) return;
+
+      const hass = getHass();
+      if (!hass || hass.enableShortcuts === false) return;
+
+      const path = typeof ev.composedPath === 'function'
+        ? ev.composedPath()
+        : [ev.target];
+      if (!canOverrideAlphanumericInput(path)) return;
+      if (hasSelectedText()) return;
+
+      if (typeof ev.preventDefault === 'function') ev.preventDefault();
+      SettingsModal.toggle();
     } catch (e) {
       // ignore
     }
