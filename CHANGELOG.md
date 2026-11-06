@@ -5,6 +5,18 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.14.0] - 2026-11-06
+
+### Changed
+- Settings UI rewritten to match Home Assistant's quick-bar popup: rounded dark surface, outlined search field, filter chips (`All`, `Tweaks`, separator, `Menu items`), flat two-line rows with leading icons and supporting text, empty-state row, and no visible close button (Escape or tapping the backdrop closes).
+
+### Added
+- Settings search filters tweaks and menu items by name, description, context, or keyword.
+- Settings filter chips limit the list to tweaks or menu items.
+
+### Removed
+- Old settings header, subtitle and floating close button were removed to match the HA popup layout.
+
 ## [1.13.5] - 2026-11-05
 
 ### Changed

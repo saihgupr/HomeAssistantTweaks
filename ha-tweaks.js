@@ -1,5 +1,5 @@
 /*
- * HA Tweaks v1.13.5 - frontend QoL tweaks for Home Assistant
+ * HA Tweaks v1.14.0 - frontend QoL tweaks for Home Assistant
  * Single-file, zero-dependency frontend plugin for Home Assistant.
  * Load via configuration.yaml:
  *   frontend:
@@ -17,7 +17,7 @@
  */
 
 (() => {
-  const HA_TWEAKS_VERSION = '1.13.5';
+  const HA_TWEAKS_VERSION = '1.14.0';
   const CONFIG_KEY = 'ha_tweaks_config';
   // Pre-1.9.0 keys: read once as fallback so existing users keep their toggles.
   const LEGACY_CONFIG_KEY = 'ha_mods_config';
@@ -6547,16 +6547,44 @@
   };
 
   /* ================================================================
-   * Settings page: chrome-flags style toggles. One master switch per tweak,
-   * plus per-item switches for tweaks that expose them (the context menu).
-   * Everything applies immediately, no reload, persisted per browser.
+   * Settings page: HA quick-bar inspired, pointer/touch-driven.
+   * Search field + filter chips + flat rows with icon, headline,
+   * supporting text and a trailing switch. Applies immediately.
    * ================================================================ */
+  const SETTINGS_ICONS = {
+    'automation-context-menu': 'mdi:robot',
+    'editor-row-context-menu': 'mdi:form-select',
+    'dashboard-empty-menu': 'mdi:view-dashboard',
+    'auto-collapse-editor': 'mdi:arrow-collapse-all',
+    'right-click-hold': 'mdi:mouse-right-click',
+    'chip-active-for': 'mdi:chip',
+    'sidebar-drag': 'mdi:drag',
+  };
+
+  const MENU_ITEM_ICONS = {
+    edit: 'mdi:pencil',
+    delete: 'mdi:delete-outline',
+    duplicate: 'mdi:content-duplicate',
+    copy: 'mdi:content-copy',
+    paste: 'mdi:content-paste',
+    cut: 'mdi:content-cut',
+    yaml: 'mdi:file-code-outline',
+    enabled: 'mdi:toggle-switch-outline',
+    run: 'mdi:play',
+    'new-automation': 'mdi:robot',
+    'new-script': 'mdi:script-text',
+  };
+
   const SettingsModal = {
     _open: false,
     _dialogEl: null,
     _backdropEl: null,
-    _bodyEl: null,
+    _listEl: null,
+    _searchEl: null,
+    _chipsEl: null,
     _onKeyDown: null,
+    _query: '',
+    _section: 'all',
 
     toggle: function () {
       if (this._open) this.close();
@@ -6566,12 +6594,16 @@
     open: function () {
       if (this._open) return;
       this._open = true;
+      this._query = '';
+      this._section = 'all';
       const self = this;
 
       const backdrop = document.createElement('div');
       backdrop.setAttribute('data-ha-tweaks', 'settings-backdrop');
       backdrop.style.cssText =
-        'position:fixed;inset:0;z-index:999998;background:rgba(0,0,0,0.45);margin:0;padding:0;border:0;';
+        'position:fixed;inset:0;z-index:999998;' +
+        'background:var(--mdc-dialog-scrim-color,rgba(0,0,0,0.45));' +
+        'margin:0;padding:0;border:0;';
       backdrop.addEventListener('click', function () {
         self.close();
       });
@@ -6587,83 +6619,166 @@
         'position:fixed',
         'z-index:999999',
         'left:50%',
-        'top:50%',
-        'transform:translate(-50%,-50%)',
-        'width:min(440px,calc(100vw - 32px))',
-        'max-height:min(560px,calc(100vh - 64px))',
+        'top:max(16px,env(safe-area-inset-top,0px))',
+        'transform:translateX(-50%)',
+        'width:min(580px,calc(100vw - 32px))',
+        'height:min(760px,calc(100dvh - 48px))',
+        'min-height:min(620px,calc(100dvh - 48px))',
+        'max-height:calc(100dvh - 48px)',
         'display:flex',
         'flex-direction:column',
         'padding:0',
         'margin:0',
         'background:var(--card-background-color,#ffffff)',
         'color:var(--primary-text-color,#212121)',
-        'border:1px solid var(--divider-color,#e0e0e0)',
-        'border-radius:var(--ha-card-border-radius,8px)',
-        'box-shadow:0 8px 28px rgba(0,0,0,0.28)',
+        'border:0',
+        'border-radius:var(--ha-border-radius-3xl,28px)',
+        'box-shadow:var(--ha-shadow-l,0 12px 40px rgba(0,0,0,0.35))',
         'font-family:inherit',
         'overflow:hidden',
         'outline:none',
       ].join(';');
 
-      const head = document.createElement('div');
-      head.style.cssText =
-        'display:flex;align-items:flex-start;justify-content:space-between;gap:12px;' +
-        'padding:20px 20px 12px 20px;border-bottom:1px solid var(--divider-color,#e0e0e0);';
-      const headText = document.createElement('div');
-      headText.style.cssText = 'flex:1 1 auto;min-width:0;';
       const title = document.createElement('div');
       title.setAttribute('id', 'ha-tweaks-title');
       title.textContent = 'Home Assistant Tweaks v' + HA_TWEAKS_VERSION;
-      title.style.cssText = 'font-weight:600;font-size:16px;margin-bottom:4px;';
-      const sub = document.createElement('div');
-      sub.textContent = 'Toggle tweaks and menu items. Applies immediately and syncs across devices.';
-      sub.style.cssText = 'font-size:13px;color:var(--secondary-text-color,#727272);';
-      headText.appendChild(title);
-      headText.appendChild(sub);
-      head.appendChild(headText);
+      title.style.cssText =
+        'position:absolute;width:1px;height:1px;padding:0;margin:-1px;' +
+        'overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0;';
+      dialog.appendChild(title);
 
-      // Visible dismiss affordance; Escape and the backdrop already work,
-      // but mouse users should not have to discover those.
-      const closeBtn = document.createElement('button');
-      closeBtn.type = 'button';
-      closeBtn.setAttribute('tabindex', '-1');
-      closeBtn.setAttribute('aria-label', 'Close settings');
-      closeBtn.title = 'Close (Esc)';
-      closeBtn.style.cssText = [
-        'flex:0 0 auto',
+      const searchWrap = document.createElement('div');
+      searchWrap.style.cssText =
+        'position:relative;display:flex;align-items:center;' +
+        'padding:16px 16px 12px 16px;flex:0 0 auto;';
+      const searchIcon = document.createElement('ha-icon');
+      searchIcon.setAttribute('icon', 'mdi:magnify');
+      searchIcon.style.cssText =
+        'position:absolute;left:28px;top:27px;--mdc-icon-size:24px;' +
+        'color:var(--primary-text-color,#212121);pointer-events:none;';
+      const input = document.createElement('input');
+      input.type = 'search';
+      input.setAttribute('tabindex', '-1');
+      input.setAttribute('aria-label', 'Search Home Assistant Tweaks settings');
+      input.placeholder = 'Search Home Assistant Tweaks';
+      input.autocomplete = 'off';
+      input.spellcheck = false;
+      input.style.cssText = [
+        'width:100%',
+        'height:52px',
+        'padding:0 16px 0 48px',
+        'border:1px solid var(--primary-color,#03a9f4)',
+        'border-radius:var(--ha-border-radius-md,8px)',
+        'background:transparent',
+        'color:var(--primary-text-color,#212121)',
+        'font-family:inherit',
+        'font-size:16px',
+        'font-weight:400',
+        'text-align:left',
+        'outline:none',
+      ].join(';');
+      input.addEventListener('input', function (ev) {
+        try {
+          self._query = String((ev.target && ev.target.value) || '');
+          self._renderList();
+        } catch (e) {
+          // keep typing usable even if rendering fails once
+        }
+      });
+      searchWrap.appendChild(searchIcon);
+      searchWrap.appendChild(input);
+      dialog.appendChild(searchWrap);
+      this._searchEl = input;
+
+      const chips = document.createElement('div');
+      chips.setAttribute('data-ha-tweaks', 'settings-chips');
+      chips.setAttribute('tabindex', '-1');
+      chips.style.cssText = [
         'display:flex',
         'align-items:center',
-        'justify-content:center',
-        'width:32px',
-        'height:32px',
-        'margin:-6px -8px 0 0',
-        'padding:0',
-        'border:0',
-        'border-radius:50%',
-        'background:transparent',
-        'color:var(--secondary-text-color,#727272)',
-        'cursor:pointer',
+        'flex-wrap:nowrap',
+        'gap:8px',
+        'padding:0 16px 12px 16px',
+        'overflow-x:auto',
+        'overflow-y:hidden',
+        'flex:0 0 auto',
       ].join(';');
-      const closeIcon = document.createElement('ha-icon');
-      closeIcon.setAttribute('icon', 'mdi:close');
-      closeIcon.style.cssText = '--mdc-icon-size:20px;color:inherit;';
-      closeBtn.appendChild(closeIcon);
-      closeBtn.addEventListener('mouseenter', function () {
-        closeBtn.style.background = 'var(--secondary-background-color,#eeeeee)';
+      [
+        { id: 'all', label: 'All' },
+        { id: 'tweak', label: 'Tweaks' },
+        { id: 'separator', separator: true },
+        { id: 'item', label: 'Menu items' },
+      ].forEach(function (def) {
+        if (def.separator) {
+          const separator = document.createElement('div');
+          separator.setAttribute('aria-hidden', 'true');
+          separator.style.cssText =
+            'flex:0 0 auto;width:1px;height:32px;' +
+            'border:0;background:var(--ha-color-border-neutral-quiet,var(--divider-color,#e0e0e0));';
+          chips.appendChild(separator);
+          return;
+        }
+        const chip = document.createElement('button');
+        chip.type = 'button';
+        chip.setAttribute('tabindex', '-1');
+        chip.setAttribute('data-ha-tweaks-section', def.id);
+        chip.setAttribute('aria-pressed', def.id === self._section ? 'true' : 'false');
+        chip.style.cssText = [
+          'flex:0 0 auto',
+          'display:inline-flex',
+          'align-items:center',
+          'justify-content:center',
+          'gap:8px',
+          'height:40px',
+          'padding:0 16px',
+          'border:1px solid var(--ha-color-border-neutral-quiet,var(--divider-color,#e0e0e0))',
+          'border-radius:var(--ha-border-radius-md,8px)',
+          'background:transparent',
+          'color:var(--primary-color,#03a9f4)',
+          'font-family:inherit',
+          'font-size:14px',
+          'font-weight:500',
+          'line-height:1',
+          'cursor:pointer',
+          'outline:none',
+          'white-space:nowrap',
+        ].join(';');
+        const check = document.createElement('ha-icon');
+        check.setAttribute('icon', 'mdi:check');
+        check.style.cssText =
+          '--mdc-icon-size:18px;color:inherit;display:none;flex:0 0 auto;';
+        const label = document.createElement('span');
+        label.textContent = def.label;
+        chip.appendChild(check);
+        chip.appendChild(label);
+        chip.addEventListener('click', function () {
+          self._section = def.id;
+          self._render();
+        });
+        chip._haTweaksCheck = check;
+        chips.appendChild(chip);
       });
-      closeBtn.addEventListener('mouseleave', function () {
-        closeBtn.style.background = 'transparent';
-      });
-      closeBtn.addEventListener('click', function () {
-        self.close();
-      });
-      head.appendChild(closeBtn);
-      dialog.appendChild(head);
+      dialog.appendChild(chips);
+      this._chipsEl = chips;
 
-      const body = document.createElement('div');
-      body.style.cssText = 'padding:8px 0 12px 0;overflow-y:auto;';
-      dialog.appendChild(body);
-      this._bodyEl = body;
+      const list = document.createElement('div');
+      list.setAttribute('data-ha-tweaks', 'settings-list');
+      list.setAttribute('tabindex', '-1');
+      list.style.cssText = [
+        'flex:1 1 auto',
+        'min-height:0',
+        'overflow-y:auto',
+        'overflow-x:hidden',
+        'padding:4px 0 16px 0',
+        'border-top:1px solid transparent',
+      ].join(';');
+      list.addEventListener('scroll', function () {
+        list.style.borderTop = list.scrollTop > 0
+          ? '1px solid var(--ha-color-border-neutral-quiet,var(--divider-color,#e0e0e0))'
+          : '1px solid transparent';
+      }, { passive: true });
+      dialog.appendChild(list);
+      this._listEl = list;
 
       document.body.appendChild(dialog);
       this._dialogEl = dialog;
@@ -6680,110 +6795,256 @@
       this._render();
     },
 
-    _render: function () {
-      const body = this._bodyEl;
-      if (!body) return;
-      const self = this;
-      while (body.firstChild) {
-        try {
-          body.removeChild(body.firstChild);
-        } catch (e) {
-          break;
-        }
-      }
+    _getEntries: function () {
+      const entries = [];
       TweakRegistry.tweaks.forEach(function (tweak) {
-        const on = !!TweakRegistry.enabled[tweak.id];
-        const row = document.createElement('div');
-        row.style.cssText =
-          'display:flex;align-items:center;gap:12px;padding:12px 20px;';
-        const nameWrap = document.createElement('div');
-        nameWrap.style.cssText = 'flex:1 1 auto;min-width:0;';
-        const name = document.createElement('div');
-        name.textContent = tweak.name;
-        name.style.cssText = 'font-weight:600;font-size:14px;';
-        nameWrap.appendChild(name);
-        row.appendChild(nameWrap);
-        row.appendChild(
-          self._makeSwitch(on, tweak.id, function (next) {
-            setTweakEnabled(tweak.id, next);
-            TweakRegistry.setEnabled(tweak, next);
-            self._render();
-          })
-        );
-        body.appendChild(row);
-        if (on && tweak.menuItems && tweak.menuItems.length) {
-          tweak.menuItems.forEach(function (item) {
-            const itemOn = isItemEnabled(tweak.id, item.id);
-            const irow = document.createElement('div');
-            irow.style.cssText =
-              'display:flex;align-items:center;gap:12px;padding:8px 20px 8px 36px;';
-            const ilabel = document.createElement('div');
-            ilabel.textContent = item.label;
-            ilabel.style.cssText =
-              'flex:1 1 auto;font-size:14px;color:var(--primary-text-color,#212121);';
-            irow.appendChild(ilabel);
-            irow.appendChild(
-              self._makeSwitch(itemOn, tweak.id + '.' + item.id, function (next) {
-                setItemEnabled(tweak.id, item.id, next);
-              })
-            );
-            body.appendChild(irow);
+        entries.push({
+          key: 'tweak:' + tweak.id,
+          type: 'tweak',
+          group: 'tweak',
+          id: tweak.id,
+          title: tweak.name,
+          subtitle: tweak.description || 'Tweak',
+          parentTitle: tweak.name,
+          icon: SETTINGS_ICONS[tweak.id] || 'mdi:tune',
+          enabled: !!TweakRegistry.enabled[tweak.id],
+          tweak: tweak,
+          item: null,
+        });
+        (tweak.menuItems || []).forEach(function (item) {
+          entries.push({
+            key: 'item:' + tweak.id + '.' + item.id,
+            type: 'item',
+            group: 'item',
+            id: tweak.id + '.' + item.id,
+            title: item.label,
+            subtitle: 'Menu item in ' + tweak.name,
+            parentTitle: tweak.name,
+            icon: MENU_ITEM_ICONS[item.id] || SETTINGS_ICONS[tweak.id] || 'mdi:circle-medium',
+            enabled: isItemEnabled(tweak.id, item.id),
+            tweak: tweak,
+            item: item,
           });
+        });
+      });
+      return entries;
+    },
+
+    _filteredEntries: function () {
+      const section = this._section;
+      const terms = String(this._query || '')
+        .trim()
+        .toLowerCase()
+        .split(/\s+/)
+        .filter(Boolean);
+      return this._getEntries().filter(function (entry) {
+        if (section !== 'all' && entry.group !== section) return false;
+        if (!terms.length) return true;
+        const haystack = [
+          entry.title,
+          entry.subtitle,
+          entry.id,
+          entry.parentTitle,
+          entry.type,
+          entry.group,
+        ].join(' ').toLowerCase();
+        return terms.every(function (term) {
+          return haystack.indexOf(term) !== -1;
+        });
+      });
+    },
+
+    _render: function () {
+      this._renderChips();
+      this._renderList();
+    },
+
+    _renderChips: function () {
+      const chips = this._chipsEl;
+      if (!chips) return;
+      const selected = this._section;
+      chips.querySelectorAll('[data-ha-tweaks-section]').forEach((chip) => {
+        const isSelected = chip.getAttribute('data-ha-tweaks-section') === selected;
+        chip.setAttribute('aria-pressed', isSelected ? 'true' : 'false');
+        chip.style.background = isSelected
+          ? 'var(--ha-color-fill-primary-normal-hover,#0f4c5f)'
+          : 'transparent';
+        chip.style.borderColor = isSelected
+          ? 'var(--ha-color-fill-primary-normal-hover,#0f4c5f)'
+          : 'var(--ha-color-border-neutral-quiet,var(--divider-color,#e0e0e0))';
+        chip.style.color = isSelected
+          ? 'var(--white-color,#ffffff)'
+          : 'var(--primary-color,#03a9f4)';
+        chip.style.fontWeight = isSelected ? '600' : '500';
+        if (chip._haTweaksCheck) {
+          chip._haTweaksCheck.style.display = isSelected ? 'block' : 'none';
         }
       });
     },
 
-    // Plain div switch (no ha-switch dependency): track + knob, HA vars only.
-    _makeSwitch: function (on, key, onFlip) {
-      let current = !!on;
-      const btn = document.createElement('button');
-      btn.type = 'button';
-      btn.setAttribute('role', 'switch');
-      // Pointer/touch-only for now: not in the keyboard tab order.
-      btn.setAttribute('tabindex', '-1');
-      btn.style.cssText = [
+    _renderList: function () {
+      const list = this._listEl;
+      if (!list) return;
+      const self = this;
+      while (list.firstChild) {
+        try {
+          list.removeChild(list.firstChild);
+        } catch (e) {
+          break;
+        }
+      }
+      const entries = this._filteredEntries();
+      if (!entries.length) {
+        list.appendChild(this._makeEmptyState());
+        return;
+      }
+      entries.forEach(function (entry) {
+        list.appendChild(self._makeRow(entry));
+      });
+    },
+
+    _makeEmptyState: function () {
+      const row = document.createElement('div');
+      row.style.cssText =
+        'display:flex;align-items:center;gap:16px;width:100%;' +
+        'padding:20px;color:var(--secondary-text-color,#727272);';
+      const icon = document.createElement('ha-icon');
+      icon.setAttribute('icon', 'mdi:magnify');
+      icon.style.cssText = '--mdc-icon-size:24px;color:inherit;flex:0 0 auto;';
+      const text = document.createElement('div');
+      text.style.cssText = 'min-width:0;';
+      const headline = document.createElement('div');
+      headline.textContent = 'Nothing found';
+      headline.style.cssText =
+        'font-size:14px;font-weight:500;color:var(--primary-text-color,#212121);';
+      const supporting = document.createElement('div');
+      supporting.textContent = 'Try a different search or filter.';
+      supporting.style.cssText = 'margin-top:2px;font-size:12px;color:inherit;';
+      text.appendChild(headline);
+      text.appendChild(supporting);
+      row.appendChild(icon);
+      row.appendChild(text);
+      return row;
+    },
+
+    _makeRow: function (entry) {
+      const self = this;
+      const enabled = !!entry.enabled;
+      const row = document.createElement('button');
+      row.type = 'button';
+      row.setAttribute('role', 'switch');
+      row.setAttribute('tabindex', '-1');
+      row.setAttribute('aria-checked', enabled ? 'true' : 'false');
+      row.setAttribute('data-ha-tweaks-setting-row', entry.key);
+      row.setAttribute('data-ha-tweaks-group', entry.group);
+      row.title = (enabled ? 'Disable ' : 'Enable ') + entry.title;
+      row.style.cssText = [
+        'display:flex',
+        'align-items:center',
+        'gap:16px',
+        'width:100%',
+        'min-height:64px',
+        'padding:10px 20px',
+        'border:0',
+        'background:transparent',
+        'color:var(--primary-text-color,#212121)',
+        'text-align:left',
+        'cursor:pointer',
+        'font-family:inherit',
+        'outline:none',
+      ].join(';');
+      row.addEventListener('mouseenter', function () {
+        row.style.background = 'var(--ha-color-fill-neutral-quiet-hover,var(--secondary-background-color,#eeeeee))';
+      });
+      row.addEventListener('mouseleave', function () {
+        row.style.background = 'transparent';
+      });
+
+      const icon = document.createElement('ha-icon');
+      icon.setAttribute('icon', entry.icon);
+      icon.style.cssText =
+        'flex:0 0 auto;--mdc-icon-size:24px;' +
+        'color:var(--secondary-text-color,#727272);';
+      row.appendChild(icon);
+
+      const text = document.createElement('div');
+      text.style.cssText = 'flex:1 1 auto;min-width:0;';
+      const headline = document.createElement('div');
+      headline.textContent = entry.title;
+      headline.style.cssText =
+        'font-size:14px;font-weight:500;line-height:1.35;' +
+        'color:var(--primary-text-color,#212121);' +
+        'overflow:hidden;text-overflow:ellipsis;white-space:nowrap;';
+      const supporting = document.createElement('div');
+      supporting.textContent = entry.subtitle;
+      supporting.style.cssText = [
+        'margin-top:2px',
+        'font-size:12px',
+        'line-height:1.35',
+        'color:var(--secondary-text-color,#727272)',
+        'display:-webkit-box',
+        '-webkit-line-clamp:2',
+        '-webkit-box-orient:vertical',
+        'overflow:hidden',
+      ].join(';');
+      text.appendChild(headline);
+      text.appendChild(supporting);
+      row.appendChild(text);
+
+      const switchVisual = document.createElement('div');
+      switchVisual.setAttribute('aria-hidden', 'true');
+      switchVisual.style.cssText = [
         'position:relative',
         'flex:0 0 auto',
-        'width:38px',
-        'height:22px',
-        'border:0',
-        'border-radius:11px',
-        'padding:0',
-        'margin:0',
-        'cursor:pointer',
+        'width:36px',
+        'height:20px',
+        'border-radius:10px',
         'background:var(--disabled-text-color,#bdbdbd)',
+        'transition:background 120ms ease-in-out',
       ].join(';');
       const knob = document.createElement('div');
       knob.style.cssText = [
         'position:absolute',
         'top:3px',
         'left:3px',
-        'width:16px',
-        'height:16px',
+        'width:14px',
+        'height:14px',
         'border-radius:50%',
         'background:#ffffff',
         'box-shadow:0 1px 3px rgba(0,0,0,0.3)',
         'transition:left 120ms ease-in-out',
       ].join(';');
-      btn.appendChild(knob);
+      switchVisual.appendChild(knob);
+      row.appendChild(switchVisual);
+
       function paint() {
-        btn.style.background = current
+        const on = row.getAttribute('aria-checked') === 'true';
+        switchVisual.style.background = on
           ? 'var(--primary-color,#03a9f4)'
           : 'var(--disabled-text-color,#bdbdbd)';
-        btn.setAttribute('aria-checked', current ? 'true' : 'false');
-        knob.style.left = current ? '19px' : '3px';
+        knob.style.left = on ? '19px' : '3px';
       }
       paint();
-      btn.addEventListener('click', function () {
-        current = !current;
+
+      row.addEventListener('click', function () {
+        const next = row.getAttribute('aria-checked') !== 'true';
+        row.setAttribute('aria-checked', next ? 'true' : 'false');
         paint();
         try {
-          onFlip(current);
+          if (entry.group === 'tweak') {
+            setTweakEnabled(entry.tweak.id, next);
+            TweakRegistry.setEnabled(entry.tweak, next);
+          } else if (entry.item) {
+            setItemEnabled(entry.tweak.id, entry.item.id, next);
+          }
         } catch (e) {
-          console.warn(LOG_TAG, 'toggle failed', e);
+          console.warn(LOG_TAG, 'settings toggle failed', e);
         }
+        // Keep data in sync with what is painted; no focus is moved.
+        entry.enabled = next;
       });
-      return btn;
+
+      return row;
     },
 
     close: function () {
@@ -6795,12 +7056,16 @@
         this._dialogEl.parentNode.removeChild(this._dialogEl);
       }
       this._dialogEl = null;
-      this._bodyEl = null;
+      this._listEl = null;
+      this._searchEl = null;
+      this._chipsEl = null;
       if (this._backdropEl && this._backdropEl.parentNode) {
         this._backdropEl.parentNode.removeChild(this._backdropEl);
       }
       this._backdropEl = null;
       this._open = false;
+      this._query = '';
+      this._section = 'all';
     },
   };
 

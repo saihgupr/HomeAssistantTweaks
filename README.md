@@ -35,11 +35,11 @@ Home Assistant Tweaks is a lightweight, native-feeling collection of quality-of-
    ```yaml
    frontend:
      extra_module_url:
-       - /hacsfiles/HomeAssistantTweaks/ha-tweaks.js?v=1.13.5
+       - /hacsfiles/HomeAssistantTweaks/ha-tweaks.js?v=1.14.0
    ```
 3. Restart Home Assistant (or reload frontend resources), then hard-refresh the browser (`Cmd/Ctrl + Shift + R`). Confirm in the developer console (`F12`):
    ```
-   [HA Tweaks v1.13.5] Initialized
+   [HA Tweaks v1.14.0] Initialized
    ```
 
 <details>
@@ -50,9 +50,9 @@ Home Assistant Tweaks is a lightweight, native-feeling collection of quality-of-
    ```yaml
    frontend:
      extra_module_url:
-       - /local/ha-tweaks.js?v=1.13.5
+       - /local/ha-tweaks.js?v=1.14.0
    ```
-3. Restart Home Assistant (or reload frontend resources), then hard-refresh. Confirm `[HA Tweaks v1.13.5] Initialized` in the console.
+3. Restart Home Assistant (or reload frontend resources), then hard-refresh. Confirm `[HA Tweaks v1.14.0] Initialized` in the console.
 
 > **Note:** The `?v=` suffix is a browser cache-buster. Keep it matched to your installed version and bump it whenever updating.
 
@@ -133,14 +133,14 @@ Default timing and gesture thresholds live near the top of [`ha-tweaks.js`](ha-t
 If a tweak is not appearing or behaving as expected:
 
 1. **Verify Loaded Version:**
-   Press `Cmd/Ctrl + Shift + M` — the modal header displays `Home Assistant Tweaks vX.Y.Z`. Alternatively, run in the browser console:
+   Press `Cmd/Ctrl + Shift + M` to open settings. To confirm the loaded version, run in the browser console:
    ```js
    HATweaks.version
    ```
 2. **Verify Initialization:**
    Check the developer console (`F12` or `Cmd + Option + I`). You should see:
    ```text
-   [HA Tweaks v1.13.5] Initialized
+   [HA Tweaks v1.14.0] Initialized
    ```
    If not present, check that `extra_module_url` is added under `frontend:` in `configuration.yaml` and not just as a Lovelace dashboard resource.
 3. **Inspect Settings & Cloud Sync:**
@@ -155,7 +155,7 @@ If a tweak is not appearing or behaving as expected:
    ```
    Reload the tab. All tweaks will log initialization, DOM matching, and event dispatch details. To disable, run `delete localStorage.ha_tweaks_debug`.
 5. **Clear Browser Cache:**
-   Browsers aggressively cache frontend modules. Make sure the `?v=1.13.5` query parameter in `configuration.yaml` matches your version, then perform a hard refresh (`Cmd/Ctrl + Shift + R`).
+   Browsers aggressively cache frontend modules. Make sure the `?v=1.14.0` query parameter in `configuration.yaml` matches your version, then perform a hard refresh (`Cmd/Ctrl + Shift + R`).
 
 ---
 
@@ -204,7 +204,7 @@ Each tweak is fault-isolated: if an upstream DOM change breaks one tweak, it log
 Yes. Toggles sync per user, and long-press touch gestures are supported on iOS and Android.
 
 **How do I confirm which version the browser is actually running?**  
-Press `Cmd/Ctrl + Shift + M` — the settings header displays `Home Assistant Tweaks vX.Y.Z`. That is the source of truth, not the `?v=` in your config.
+Press `Cmd/Ctrl + Shift + M` to open settings — `HATweaks.version` in the browser console is the source of truth, not the `?v=` in your config.
 
 </details>
 
