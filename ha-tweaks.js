@@ -1,5 +1,5 @@
 /*
- * HA Tweaks v1.18.9 - frontend QoL tweaks for Home Assistant
+ * HA Tweaks v1.18.10 - frontend QoL tweaks for Home Assistant
  * Single-file, zero-dependency frontend plugin for Home Assistant.
  * Load via configuration.yaml:
  *   frontend:
@@ -17,7 +17,7 @@
  */
 
 (() => {
-  const HA_TWEAKS_VERSION = '1.18.9';
+  const HA_TWEAKS_VERSION = '1.18.11';
   const CONFIG_KEY = 'ha_tweaks_config';
   // Pre-1.9.0 keys: read once as fallback so existing users keep their toggles.
   const LEGACY_CONFIG_KEY = 'ha_mods_config';
@@ -7533,10 +7533,10 @@
     },
 
     _makeVcNote: function () {
-      const wrap = document.createElement('span');
+      const wrap = document.createElement('div');
       wrap.setAttribute('data-ha-tweaks', 'settings-vc-required');
       wrap.style.cssText =
-        'font-size:12px;line-height:1.35;' +
+        'margin-top:2px;font-size:12px;line-height:1.35;' +
         'color:var(--secondary-text-color,#727272);';
       const link = document.createElement('a');
       link.href = VC_ADDON_REPO_URL;
@@ -7660,11 +7660,11 @@
         'overflow:hidden',
       ].join(';');
       heading.appendChild(headline);
-      if (self._showVcNote(entry)) {
-        heading.appendChild(self._makeVcNote());
-      }
       text.appendChild(heading);
       text.appendChild(supporting);
+      if (self._showVcNote(entry)) {
+        text.appendChild(self._makeVcNote());
+      }
       row.appendChild(text);
 
       const switchVisual = document.createElement('div');
