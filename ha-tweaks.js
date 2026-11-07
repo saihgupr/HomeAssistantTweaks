@@ -1,5 +1,5 @@
 /*
- * HA Tweaks v1.17.1 - frontend QoL tweaks for Home Assistant
+ * HA Tweaks v1.18.0 - frontend QoL tweaks for Home Assistant
  * Single-file, zero-dependency frontend plugin for Home Assistant.
  * Load via configuration.yaml:
  *   frontend:
@@ -17,7 +17,7 @@
  */
 
 (() => {
-  const HA_TWEAKS_VERSION = '1.17.1';
+  const HA_TWEAKS_VERSION = '1.18.0';
   const CONFIG_KEY = 'ha_tweaks_config';
   // Pre-1.9.0 keys: read once as fallback so existing users keep their toggles.
   const LEGACY_CONFIG_KEY = 'ha_mods_config';
@@ -7881,11 +7881,135 @@
    *   editor (location.reload fallback); failure keeps the modal open
    *   with an inline error and Retry.
    * ================================================================ */
+  const VERSION_NAV_STYLE_ID = 'ha-tweaks-version-nav-style';
+  function ensureVersionNavStyles() {
+    if (typeof document === 'undefined' || !document.head) return;
+    if (document.getElementById(VERSION_NAV_STYLE_ID)) return;
+    const style = document.createElement('style');
+    style.id = VERSION_NAV_STYLE_ID;
+    style.textContent = [
+      '.version-nav[data-ha-tweaks="version-nav"] {',
+      '  display: inline-flex;',
+      '  align-items: center;',
+      '  gap: 0;',
+      '  background: var(--secondary-background-color, rgba(255, 255, 255, 0.08));',
+      '  border: 1px solid transparent;',
+      '  border-radius: var(--ha-border-radius-pill, 16px);',
+      '  padding: 0 2px;',
+      '  height: 32px;',
+      '  color: var(--primary-text-color, #ffffff);',
+      '  box-sizing: border-box;',
+      '  user-select: none;',
+      '  margin: 0 4px;',
+      '  font-family: inherit;',
+      '  transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease;',
+      '  vertical-align: middle;',
+      '}',
+      '.version-nav[data-ha-tweaks="version-nav"] .version-nav-btn {',
+      '  width: 28px;',
+      '  height: 28px;',
+      '  background: transparent;',
+      '  border: none;',
+      '  color: inherit;',
+      '  border-radius: 50%;',
+      '  transition: background 0.15s ease, opacity 0.15s ease;',
+      '  display: inline-flex;',
+      '  align-items: center;',
+      '  justify-content: center;',
+      '  cursor: pointer;',
+      '  padding: 0;',
+      '  outline: none;',
+      '}',
+      '.version-nav[data-ha-tweaks="version-nav"] .version-nav-btn:hover:not(:disabled) {',
+      '  color: var(--primary-text-color, #ffffff);',
+      '  background: rgba(127, 127, 127, 0.2);',
+      '}',
+      '.version-nav[data-ha-tweaks="version-nav"] .version-nav-btn:disabled {',
+      '  opacity: 0.3;',
+      '  cursor: not-allowed;',
+      '}',
+      '.version-nav[data-ha-tweaks="version-nav"] .version-badge {',
+      '  padding: 0 10px;',
+      '  height: 28px;',
+      '  min-width: 75px;',
+      '  background: transparent;',
+      '  border: none;',
+      '  font-size: 13px;',
+      '  font-weight: 500;',
+      '  color: var(--primary-text-color, #ffffff);',
+      '  display: inline-flex;',
+      '  align-items: center;',
+      '  justify-content: center;',
+      '  text-align: center;',
+      '  white-space: nowrap;',
+      '  cursor: pointer;',
+      '  transition: color 0.15s ease;',
+      '}',
+      '.version-nav[data-ha-tweaks="version-nav"] .version-badge:hover {',
+      '  opacity: 0.85;',
+      '}',
+      '.version-nav[data-ha-tweaks="version-nav"].is-historical-mode {',
+      '  background: rgba(251, 191, 36, 0.1);',
+      '  border: 1px solid rgba(245, 158, 11, 0.6) !important;',
+      '  color: #fbbf24 !important;',
+      '}',
+      '.version-nav[data-ha-tweaks="version-nav"].is-historical-mode .version-nav-btn {',
+      '  color: #fbbf24 !important;',
+      '}',
+      '.version-nav[data-ha-tweaks="version-nav"].is-historical-mode .version-nav-btn:hover:not(:disabled) {',
+      '  color: #fbbf24 !important;',
+      '  background: rgba(251, 191, 36, 0.15);',
+      '}',
+      '.version-nav[data-ha-tweaks="version-nav"].is-historical-mode .version-badge {',
+      '  color: #fbbf24 !important;',
+      '  font-weight: 600;',
+      '}',
+    ].join('\n');
+    document.head.appendChild(style);
+  }
+
+  function normalizeForComparison(obj) {
+    if (!obj || typeof obj !== 'object') return obj;
+    if (Array.isArray(obj)) {
+      return obj.map(normalizeForComparison);
+    }
+    const result = {};
+    const sortedKeys = Object.keys(obj).sort();
+    for (let i = 0; i < sortedKeys.length; i++) {
+      const key = sortedKeys[i];
+      if (key === 'block-alias' || key === '_type' || key === 'id') continue;
+      result[key] = normalizeForComparison(obj[key]);
+    }
+    return result;
+  }
+
+  function formatVersionBadge(commitDate) {
+    if (!commitDate) return 'Past version';
+    try {
+      const d = new Date(commitDate);
+      if (isNaN(d.getTime())) return String(commitDate);
+      const now = new Date();
+      const isToday = d.toDateString() === now.toDateString();
+      const time = d.toLocaleString(undefined, {
+        hour: 'numeric',
+        minute: '2-digit',
+      });
+      if (isToday) {
+        return 'Today ' + time;
+      }
+      const month = d.toLocaleString(undefined, { month: 'short' });
+      const day = d.toLocaleString(undefined, { day: 'numeric' });
+      return month + ' ' + day + ' ' + time;
+    } catch (e) {
+      return 'Past version';
+    }
+  }
+
   const EditorVersionHistoryTweak = {
     id: 'editor-version-history',
     name: 'Version history in editors',
     description:
-      'Show Version Control history inside the native automation/script editor with restore.',
+      'Show Version Control history inside the native automation/script editor with date/arrows navigation and restore on save.',
     defaultEnabled: false,
 
     _activePath: null,
@@ -7897,8 +8021,17 @@
     _lastTick: 0,
     _observers: [],
     _observedRoots: null,
-    _toolbarBtn: null,
-    _toolbarTooltip: null,
+
+    _versionNavEl: null,
+    _navCommits: [],
+    _currentIndex: -1,
+    _previewMode: false,
+    _previewData: null,
+    _liveConfig: null,
+    _versionContentCache: {},
+    _isScanningCommits: false,
+    _isFetchingVersion: false,
+    _scanId: 0,
 
     _modalOpen: false,
     _backdropEl: null,
@@ -7924,6 +8057,12 @@
       this._probeKey = null;
       this._available = false;
       this._probeInFlight = false;
+      this._versionContentCache = {};
+      this._navCommits = [];
+      this._currentIndex = -1;
+      this._previewMode = false;
+      this._previewData = null;
+      this._liveConfig = null;
       this.onNavigate(window.location.pathname);
     },
 
@@ -7944,9 +8083,7 @@
       }
       if (this._activePath !== currentPath) {
         this._activePath = currentPath;
-        this._probeKey = null;
-        this._available = false;
-        this._probeInFlight = false;
+        this._cleanupEditor();
         this._closeModal();
       }
       this._startEditorWatch();
@@ -8051,6 +8188,22 @@
     },
 
     _cleanupEditor: function () {
+      if (this._previewMode) {
+        this._exitVersionPreview();
+      }
+      this._scanId++;
+      this._isScanningCommits = false;
+      this._isFetchingVersion = false;
+      this._navCommits = [];
+      this._currentIndex = -1;
+      this._previewMode = false;
+      this._previewData = null;
+      this._liveConfig = null;
+      this._versionContentCache = {};
+      this._probeKey = null;
+      this._available = false;
+      this._probeInFlight = false;
+
       if (this._watchTimer) {
         clearInterval(this._watchTimer);
         this._watchTimer = null;
@@ -8071,7 +8224,7 @@
       } catch (e) {
         this._observedRoots = null;
       }
-      this._removeToolbarButton();
+      this._removeVersionNav();
       this._outer = null;
     },
 
@@ -8122,7 +8275,7 @@
         isYaml = false;
       }
       try {
-        this._ensureToolbarButton(subpage, isYaml);
+        this._ensureVersionNav(subpage, isYaml);
       } catch (e) {
         // ignore
       }
@@ -8137,9 +8290,28 @@
       } catch (e) {
         // ignore
       }
+
+      // Check if user saved while in preview mode!
+      if (this._previewMode && this._currentIndex !== -1) {
+        const dirty = this._isEditorDirty();
+        if (!dirty) {
+          // Editor is no longer dirty -> the save was persisted to disk!
+          this._liveConfig = JSON.parse(JSON.stringify(outer.config || {}));
+          this._previewMode = false;
+          this._previewData = null;
+          this._currentIndex = -1;
+          this._updateNavUI();
+          toast('Version restored and saved');
+          const domain = this._editorDomain();
+          const routeId = this._editorId();
+          if (domain && routeId) {
+            this._startHistoryScan(domain, routeId);
+          }
+        }
+      }
     },
 
-    // Availability probe; the button shows/hides on the cached result.
+    // Availability probe; the nav bar shows/hides on the cached result.
     _probeThenSync: function () {
       const self = this;
       let domain = null;
@@ -8153,14 +8325,27 @@
       }
       if (!domain || !routeId || routeId === 'new') {
         this._available = false;
-        this._syncToolbarButton();
+        this._syncVersionNav();
         return;
       }
       const key = domain + ':' + routeId;
       if (this._probeKey !== key) {
         this._probeKey = key;
+        this._scanId++;
+        this._navCommits = [];
+        this._currentIndex = -1;
+        this._previewMode = false;
+        this._previewData = null;
+        this._liveConfig = null;
+        this._versionContentCache = {};
       }
-      if (this._available || this._probeInFlight) return;
+      if (this._available) {
+        if (!this._isScanningCommits && !this._navCommits.length) {
+          this._startHistoryScan(domain, routeId);
+        }
+        return;
+      }
+      if (this._probeInFlight) return;
       // Non-admins never see the button; skip supervisor traffic entirely.
       if (!VcClient.isAdmin()) return;
       this._probeInFlight = true;
@@ -8169,7 +8354,10 @@
           self._probeInFlight = false;
           try {
             self._available = !!ok;
-            self._syncToolbarButton();
+            self._syncVersionNav();
+            if (ok) {
+              self._startHistoryScan(domain, routeId);
+            }
           } catch (e) {
             // ignore
           }
@@ -8179,41 +8367,448 @@
         });
     },
 
-    _ensureToolbarButton: function (subpage, isYaml) {
-      if (!subpage) return;
-      if (this._toolbarBtn && this._toolbarBtn.parentNode !== subpage) {
-        this._removeToolbarButton();
+    _startHistoryScan: function (domain, routeId) {
+      const self = this;
+      if (this._isScanningCommits) return;
+      this._isScanningCommits = true;
+      const currentScanId = ++this._scanId;
+      const kind = VcClient.kindFor(domain);
+      const vcId = VcClient.vcIdFor(domain, routeId);
+      const path =
+        '/api/' +
+        kind +
+        '/' +
+        encodeURIComponent(vcId) +
+        '/history-metadata';
+
+      VcClient.vcFetch(path, { method: 'GET' })
+        .then(function (res) {
+          if (!res || !res.ok) throw new Error('http ' + (res ? res.status : 0));
+          return res.json();
+        })
+        .then(function (json) {
+          if (self._scanId !== currentScanId) return;
+          self._isScanningCommits = false;
+          const commits = (json && json.commits) || [];
+          self._commits = commits;
+          if (commits.length > 0) {
+            self._filterCommitsProgressively(commits, domain, routeId, vcId, currentScanId);
+          }
+        })
+        .catch(function () {
+          if (self._scanId === currentScanId) {
+            self._isScanningCommits = false;
+          }
+        });
+    },
+
+    _filterCommitsProgressively: function (commits, domain, routeId, vcId, scanId) {
+      const self = this;
+      const kind = VcClient.kindFor(domain);
+      const outer = this._getOuter();
+      if (outer && outer.config && !this._liveConfig) {
+        this._liveConfig = JSON.parse(JSON.stringify(outer.config));
       }
-      if (!this._toolbarBtn) {
-        const self = this;
-        const btn = document.createElement('ha-icon-button');
-        btn.id = 'ha-tweaks-button-history';
-        btn.setAttribute('slot', 'toolbar-icon');
-        btn.setAttribute('data-ha-tweaks', 'version-history');
-        btn.path = MDI_HISTORY;
+
+      const currentContentStr = this._liveConfig
+        ? JSON.stringify(normalizeForComparison(this._liveConfig))
+        : '';
+
+      let lastKeptContentStr = null;
+      const commitsToScan = (commits || []).slice(0, 25);
+
+      let promise = Promise.resolve();
+      commitsToScan.forEach(function (commit) {
+        promise = promise.then(function () {
+          if (self._scanId !== scanId) return;
+
+          const path =
+            '/api/' +
+            kind +
+            '/' +
+            encodeURIComponent(vcId) +
+            '/at-commit?commitHash=' +
+            encodeURIComponent(commit.hash);
+
+          return VcClient.vcFetch(path, { method: 'GET' })
+            .then(function (res) {
+              if (!res || !res.ok) return null;
+              return res.json();
+            })
+            .then(function (data) {
+              if (self._scanId !== scanId) return;
+              if (!data || !data.success) return;
+              const content = kind === 'automation' ? data.automation : data.script;
+              if (!content) return;
+
+              const contentStr = JSON.stringify(normalizeForComparison(content));
+              if (currentContentStr && contentStr === currentContentStr) return;
+              if (lastKeptContentStr !== null && contentStr === lastKeptContentStr) return;
+
+              self._versionContentCache[commit.hash] = content;
+              self._navCommits.push(commit);
+              lastKeptContentStr = contentStr;
+
+              self._updateNavUI();
+            })
+            .catch(function () {});
+        });
+      });
+    },
+
+    _navigateVersion: function (direction) {
+      const commits = this._navCommits || [];
+      if (!commits.length) return;
+
+      const currentIndex = this._currentIndex;
+      let newIndex;
+
+      if (direction === 'back') {
+        if (currentIndex === -1) {
+          const outer = this._getOuter();
+          if (outer && outer.config) {
+            this._liveConfig = JSON.parse(JSON.stringify(outer.config));
+          }
+          newIndex = 0;
+        } else if (currentIndex < commits.length - 1) {
+          newIndex = currentIndex + 1;
+        } else {
+          return;
+        }
+      } else {
+        if (currentIndex === 0) {
+          newIndex = -1;
+        } else if (currentIndex > 0) {
+          newIndex = currentIndex - 1;
+        } else {
+          return;
+        }
+      }
+
+      this._currentIndex = newIndex;
+
+      if (newIndex === -1) {
+        this._exitVersionPreview();
+      } else {
+        const commit = commits[newIndex];
+        this._loadVersionAtCommit(commit);
+      }
+    },
+
+    _loadVersionAtCommit: function (commit) {
+      const self = this;
+      const domain = this._editorDomain();
+      const routeId = this._editorId();
+      if (!domain || !routeId) return;
+
+      const kind = VcClient.kindFor(domain);
+      const vcId = VcClient.vcIdFor(domain, routeId);
+
+      if (this._versionContentCache[commit.hash]) {
+        this._applyContent(this._versionContentCache[commit.hash]);
+        this._updateNavUI();
+        return;
+      }
+
+      const path =
+        '/api/' +
+        kind +
+        '/' +
+        encodeURIComponent(vcId) +
+        '/at-commit?commitHash=' +
+        encodeURIComponent(commit.hash);
+
+      this._isFetchingVersion = true;
+      this._updateNavUI();
+
+      VcClient.vcFetch(path, { method: 'GET' })
+        .then(function (res) {
+          if (!res || !res.ok) throw new Error('http ' + (res ? res.status : 0));
+          return res.json();
+        })
+        .then(function (data) {
+          self._isFetchingVersion = false;
+          if (data && data.success) {
+            const content = kind === 'automation' ? data.automation : data.script;
+            if (content) {
+              self._versionContentCache[commit.hash] = content;
+              self._applyContent(content);
+            }
+          }
+          self._updateNavUI();
+        })
+        .catch(function (err) {
+          self._isFetchingVersion = false;
+          console.warn(LOG_TAG, 'failed to load version at commit', err);
+          toast('Failed to load version at ' + (commit.hash ? commit.hash.slice(0, 7) : ''));
+          self._updateNavUI();
+        });
+    },
+
+    _applyContent: function (content) {
+      if (!content) return;
+      const outer = this._getOuter();
+      if (!outer) return;
+      const manual = this._findManualEditor(outer);
+
+      const newConfig = JSON.parse(JSON.stringify(content));
+      if (this._liveConfig && this._liveConfig.id) {
+        newConfig.id = this._liveConfig.id;
+      } else if (outer.automationId) {
+        newConfig.id = outer.automationId;
+      } else if (outer.scriptId) {
+        newConfig.id = outer.scriptId;
+      }
+
+      this._previewMode = true;
+      this._previewData = newConfig;
+
+      // 1. Update manual editor if present and dispatch value-changed
+      if (manual) {
         try {
-          btn.label = 'Version history';
+          manual.config = newConfig;
+          manual.dispatchEvent(
+            new CustomEvent('value-changed', {
+              detail: { value: newConfig },
+              bubbles: true,
+              composed: true,
+            })
+          );
         } catch (e) {
           // ignore
         }
-        btn.addEventListener('click', function (ev) {
+      }
+
+      // 2. Update outer editor
+      try {
+        if (typeof outer._updateConfig === 'function') {
+          outer._updateConfig(newConfig);
+        } else {
+          outer.config = newConfig;
+          if (typeof outer._updateDirtyState === 'function') {
+            outer._updateDirtyState({
+              config: newConfig,
+              entityRegistryUpdate: outer.entityRegistryUpdate,
+            });
+          }
+        }
+      } catch (e) {
+        outer.config = newConfig;
+      }
+
+      // 3. Request update on outer
+      try {
+        if (typeof outer.requestUpdate === 'function') outer.requestUpdate();
+      } catch (e) {}
+
+      // 4. Update header title if alias changed
+      try {
+        const subpage =
+          outer.shadowRoot && outer.shadowRoot.querySelector('hass-subpage');
+        if (subpage && newConfig.alias) {
+          subpage.header = newConfig.alias;
+        }
+      } catch (e) {}
+
+      // 5. If in YAML mode, update yaml editor
+      try {
+        const yamlEditor = querySelectorDeep(
+          'ha-yaml-editor',
+          outer.shadowRoot || outer
+        );
+        if (yamlEditor) {
+          yamlEditor.value = newConfig;
+          yamlEditor.dispatchEvent(
+            new CustomEvent('value-changed', {
+              detail: { value: newConfig },
+              bubbles: true,
+              composed: true,
+            })
+          );
+        }
+      } catch (e) {}
+
+      // 6. Explicitly set dirty flags if exposed
+      try {
+        if (typeof outer.isDirtyState === 'boolean') outer.isDirtyState = true;
+        if (typeof outer._dirty === 'boolean') outer._dirty = true;
+      } catch (e) {}
+    },
+
+    _exitVersionPreview: function () {
+      this._previewMode = false;
+      this._previewData = null;
+      this._currentIndex = -1;
+
+      if (this._liveConfig) {
+        const outer = this._getOuter();
+        if (outer) {
+          const manual = this._findManualEditor(outer);
+          const original = JSON.parse(JSON.stringify(this._liveConfig));
+          if (manual) {
+            try {
+              manual.config = original;
+              manual.dispatchEvent(
+                new CustomEvent('value-changed', {
+                  detail: { value: original },
+                  bubbles: true,
+                  composed: true,
+                })
+              );
+            } catch (e) {}
+          }
           try {
-            ev.stopPropagation();
+            if (typeof outer._updateConfig === 'function') {
+              outer._updateConfig(original);
+            } else {
+              outer.config = original;
+              if (typeof outer._updateDirtyState === 'function') {
+                outer._updateDirtyState({
+                  config: original,
+                  entityRegistryUpdate: outer.entityRegistryUpdate,
+                });
+              }
+            }
           } catch (e) {
-            // ignore
+            outer.config = original;
           }
           try {
-            self.openHistory();
-          } catch (err) {
-            console.warn(LOG_TAG, 'version history open failed', err);
-          }
+            if (typeof outer.requestUpdate === 'function') outer.requestUpdate();
+          } catch (e) {}
+          try {
+            const subpage =
+              outer.shadowRoot && outer.shadowRoot.querySelector('hass-subpage');
+            if (subpage && original.alias) {
+              subpage.header = original.alias;
+            }
+          } catch (e) {}
+          try {
+            const yamlEditor = querySelectorDeep(
+              'ha-yaml-editor',
+              outer.shadowRoot || outer
+            );
+            if (yamlEditor) {
+              yamlEditor.value = original;
+              yamlEditor.dispatchEvent(
+                new CustomEvent('value-changed', {
+                  detail: { value: original },
+                  bubbles: true,
+                  composed: true,
+                })
+              );
+            }
+          } catch (e) {}
+          try {
+            if (typeof outer.isDirtyState === 'boolean') outer.isDirtyState = false;
+            if (typeof outer._dirty === 'boolean') outer._dirty = false;
+          } catch (e) {}
+        }
+      }
+
+      this._updateNavUI();
+    },
+
+    _updateNavUI: function () {
+      const nav = this._versionNavEl;
+      if (!nav) return;
+
+      const available = this._available;
+      if (!available) {
+        nav.style.display = 'none';
+        return;
+      }
+      nav.style.display = 'inline-flex';
+
+      const btnBack = nav.querySelector('.version-nav-back');
+      const btnForward = nav.querySelector('.version-nav-forward');
+      const badge = nav.querySelector('.version-badge');
+
+      if (this._isFetchingVersion) {
+        if (badge) badge.textContent = 'Loading\u2026';
+        if (btnBack) btnBack.disabled = true;
+        if (btnForward) btnForward.disabled = true;
+        return;
+      }
+
+      const commits = this._navCommits || [];
+      const currentIndex = this._currentIndex;
+
+      if (btnBack) {
+        btnBack.disabled = commits.length === 0 || currentIndex >= commits.length - 1;
+      }
+      if (btnForward) {
+        btnForward.disabled = currentIndex === -1;
+      }
+
+      if (badge) {
+        if (currentIndex === -1) {
+          badge.textContent = 'Current';
+          badge.classList.remove('is-historical');
+          nav.classList.remove('is-historical-mode');
+        } else {
+          const commit = commits[currentIndex];
+          badge.textContent = formatVersionBadge(commit && commit.date);
+          badge.classList.add('is-historical');
+          nav.classList.add('is-historical-mode');
+        }
+      }
+    },
+
+    _ensureVersionNav: function (subpage, isYaml) {
+      if (!subpage) return;
+      if (this._versionNavEl && this._versionNavEl.parentNode !== subpage) {
+        this._removeVersionNav();
+      }
+      if (!this._versionNavEl) {
+        ensureVersionNavStyles();
+        const self = this;
+        const nav = document.createElement('div');
+        nav.id = 'ha-tweaks-version-nav';
+        nav.className = 'version-nav';
+        nav.setAttribute('slot', 'toolbar-icon');
+        nav.setAttribute('data-ha-tweaks', 'version-nav');
+        nav.setAttribute('data-style', '1');
+
+        const btnBack = document.createElement('button');
+        btnBack.type = 'button';
+        btnBack.className = 'version-nav-btn version-nav-back';
+        btnBack.title = 'Previous version';
+        btnBack.setAttribute('aria-label', 'Previous version');
+        btnBack.disabled = true;
+        btnBack.innerHTML =
+          '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="16" height="16">' +
+          '<polyline points="15 18 9 12 15 6"></polyline></svg>';
+        btnBack.addEventListener('click', function (ev) {
+          ev.stopPropagation();
+          self._navigateVersion('back');
         });
 
-        const tooltip = document.createElement('ha-tooltip');
-        tooltip.setAttribute('placement', 'bottom');
-        tooltip.setAttribute('for', 'ha-tweaks-button-history');
-        tooltip.setAttribute('data-ha-tweaks', 'version-history-tooltip');
-        tooltip.textContent = 'Version history';
+        const badge = document.createElement('span');
+        badge.className = 'version-badge';
+        badge.textContent = 'Current';
+        badge.title = 'Click to browse all versions';
+        badge.addEventListener('click', function (ev) {
+          ev.stopPropagation();
+          self.openHistory();
+        });
+
+        const btnForward = document.createElement('button');
+        btnForward.type = 'button';
+        btnForward.className = 'version-nav-btn version-nav-forward';
+        btnForward.title = 'Next version';
+        btnForward.setAttribute('aria-label', 'Next version');
+        btnForward.disabled = true;
+        btnForward.innerHTML =
+          '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="16" height="16">' +
+          '<polyline points="9 18 15 12 9 6"></polyline></svg>';
+        btnForward.addEventListener('click', function (ev) {
+          ev.stopPropagation();
+          self._navigateVersion('forward');
+        });
+
+        nav.appendChild(btnBack);
+        nav.appendChild(badge);
+        nav.appendChild(btnForward);
 
         // Insert before Traces or the 3-dot dropdown in hass-subpage toolbar.
         const anchor =
@@ -8221,20 +8816,17 @@
           subpage.querySelector('ha-dropdown[slot="toolbar-icon"]') ||
           subpage.querySelector('ha-button-menu[slot="toolbar-icon"]');
         if (anchor) {
-          subpage.insertBefore(btn, anchor);
-          subpage.insertBefore(tooltip, anchor);
+          subpage.insertBefore(nav, anchor);
         } else {
-          subpage.appendChild(btn);
-          subpage.appendChild(tooltip);
+          subpage.appendChild(nav);
         }
-        this._toolbarBtn = btn;
-        this._toolbarTooltip = tooltip;
+        this._versionNavEl = nav;
       }
-      this._syncToolbarButton(isYaml);
+      this._syncVersionNav(isYaml);
     },
 
-    _syncToolbarButton: function (isYaml) {
-      if (!this._toolbarBtn) return;
+    _syncVersionNav: function (isYaml) {
+      if (!this._versionNavEl) return;
       let yaml = !!isYaml;
       if (!isYaml) {
         try {
@@ -8245,33 +8837,22 @@
           // ignore
         }
       }
-      if (this._toolbarBtn.path !== MDI_HISTORY) {
-        this._toolbarBtn.path = MDI_HISTORY;
-      }
       const show = !yaml && !!this._available;
-      this._toolbarBtn.style.display = show ? '' : 'none';
-      if (this._toolbarTooltip) {
-        this._toolbarTooltip.style.display = show ? '' : 'none';
+      this._versionNavEl.style.display = show ? 'inline-flex' : 'none';
+      if (show) {
+        this._updateNavUI();
       }
     },
 
-    _removeToolbarButton: function () {
-      if (this._toolbarBtn && this._toolbarBtn.parentNode) {
+    _removeVersionNav: function () {
+      if (this._versionNavEl && this._versionNavEl.parentNode) {
         try {
-          this._toolbarBtn.parentNode.removeChild(this._toolbarBtn);
+          this._versionNavEl.parentNode.removeChild(this._versionNavEl);
         } catch (e) {
           // ignore
         }
       }
-      this._toolbarBtn = null;
-      if (this._toolbarTooltip && this._toolbarTooltip.parentNode) {
-        try {
-          this._toolbarTooltip.parentNode.removeChild(this._toolbarTooltip);
-        } catch (e) {
-          // ignore
-        }
-      }
-      this._toolbarTooltip = null;
+      this._versionNavEl = null;
     },
 
     _editorDisplayName: function (domain, routeId) {
@@ -8313,6 +8894,8 @@
             if (ed.isDirty) return true;
           } else if (typeof ed._dirty === 'boolean') {
             if (ed._dirty) return true;
+          } else if (typeof ed.isDirtyState === 'boolean') {
+            if (ed.isDirtyState) return true;
           }
         } catch (e) {
           // ignore
@@ -8837,11 +9420,51 @@
       if (canRestore) {
         const actions = document.createElement('div');
         actions.setAttribute('data-ha-tweaks', 'version-history-actions');
-        actions.style.cssText = 'flex:0 0 auto;';
+        actions.style.cssText =
+          'flex:0 0 auto;display:flex;align-items:center;gap:4px;';
         row.appendChild(actions);
-        this._paintRestoreButton(actions, row, commit, domain, routeId);
+
+        const previewBtn = document.createElement('button');
+        previewBtn.type = 'button';
+        previewBtn.textContent = 'Preview';
+        previewBtn.setAttribute('data-ha-tweaks', 'version-history-preview');
+        previewBtn.style.cssText =
+          'border:0;background:transparent;cursor:pointer;' +
+          'font-family:inherit;font-size:13px;font-weight:500;' +
+          'color:var(--primary-color,#03a9f4);padding:8px;';
+        previewBtn.addEventListener('click', function (ev) {
+          try {
+            ev.stopPropagation();
+          } catch (e) {}
+          self._previewCommitFromModal(commit);
+        });
+        actions.appendChild(previewBtn);
+
+        const restoreWrap = document.createElement('div');
+        restoreWrap.setAttribute('data-ha-tweaks', 'version-history-restore-wrap');
+        restoreWrap.style.cssText = 'display:flex;align-items:center;';
+        actions.appendChild(restoreWrap);
+        this._paintRestoreButton(restoreWrap, row, commit, domain, routeId);
       }
       return row;
+    },
+
+    _previewCommitFromModal: function (commit) {
+      if (!commit) return;
+      this._closeModal();
+      let idx = -1;
+      for (let i = 0; i < this._navCommits.length; i++) {
+        if (this._navCommits[i].hash === commit.hash) {
+          idx = i;
+          break;
+        }
+      }
+      if (idx === -1) {
+        this._navCommits.push(commit);
+        idx = this._navCommits.length - 1;
+      }
+      this._currentIndex = idx;
+      this._loadVersionAtCommit(commit);
     },
 
     _paintRestoreButton: function (actions, row, commit, domain, routeId) {
