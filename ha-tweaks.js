@@ -17,7 +17,7 @@
  */
 
 (() => {
-  const HA_TWEAKS_VERSION = '1.18.15';
+  const HA_TWEAKS_VERSION = '1.18.16';
   const CONFIG_KEY = 'ha_tweaks_config';
   // Pre-1.9.0 keys: read once as fallback so existing users keep their toggles.
   const LEGACY_CONFIG_KEY = 'ha_mods_config';
@@ -8193,6 +8193,7 @@
 
     _versionNavEl: null,
     _versionTooltips: [],
+    _expansionRestoreId: 0,
     _navCommits: [],
     _currentIndex: -1,
     _previewMode: false,
@@ -8361,6 +8362,7 @@
       if (this._previewMode) {
         this._exitVersionPreview();
       }
+      this._expansionRestoreId++;
       this._scanId++;
       this._isScanningCommits = false;
       this._isFetchingVersion = false;
@@ -8722,10 +8724,59 @@
         });
     },
 
+    _captureExpansionState: function () {
+      try {
+        const outer = this._getOuter();
+        if (!this._findManualEditor(outer)) return null;
+        return EditorRowContextMenuTweak._snapshotCollapseStates();
+      } catch (e) {
+        return null;
+      }
+    },
+
+    _restoreExpansionState: function (snapshot) {
+      if (!snapshot) return;
+      const hasRows = snapshot.states && snapshot.states.length;
+      const hasPanels = snapshot.panelStates && snapshot.panelStates.length;
+      if (!hasRows && !hasPanels) return;
+      const self = this;
+      const token = ++this._expansionRestoreId;
+      let attempts = 0;
+      const attempt = function () {
+        if (token !== self._expansionRestoreId) return;
+        try {
+          EditorRowContextMenuTweak._restoreCollapseStates(
+            snapshot.states || [],
+            'version',
+            -1,
+            null
+          );
+        } catch (e) {
+          // ignore
+        }
+        try {
+          EditorRowContextMenuTweak._restorePanelStates(
+            snapshot,
+            'version',
+            -1,
+            null
+          );
+        } catch (e) {
+          // ignore
+        }
+        attempts++;
+        if (attempts < 10) {
+          setTimeout(attempt, 100);
+        }
+      };
+      attempt();
+    },
+
     _applyContent: function (content) {
       if (!content) return;
       const outer = this._getOuter();
       if (!outer) return;
+      const expansionState = this._captureExpansionState();
       const manual = this._findManualEditor(outer);
 
       const newConfig = JSON.parse(JSON.stringify(content));
@@ -8815,9 +8866,12 @@
         if (typeof outer.isDirtyState === 'boolean') outer.isDirtyState = true;
         if (typeof outer._dirty === 'boolean') outer._dirty = true;
       } catch (e) {}
+
+      this._restoreExpansionState(expansionState);
     },
 
     _exitVersionPreview: function () {
+      const expansionState = this._captureExpansionState();
       this._previewMode = false;
       this._previewData = null;
       this._currentIndex = -1;
@@ -8891,6 +8945,7 @@
         }
       }
 
+      this._restoreExpansionState(expansionState);
       this._updateNavUI();
     },
 
