@@ -9047,7 +9047,7 @@
       const sentinel = document.createElement('div');
       sentinel.setAttribute('data-ha-tweaks', 'version-history-sentinel');
       sentinel.style.cssText = 'height:1px;';
-      this._listEl.appendChild(sentin);
+      this._listEl.appendChild(sentinel);
       this._sentinel = sentinel;
       try {
         const obs = new IntersectionObserver(
