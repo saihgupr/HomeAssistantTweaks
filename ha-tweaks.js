@@ -17,7 +17,7 @@
  */
 
 (() => {
-  const HA_TWEAKS_VERSION = '1.18.12';
+  const HA_TWEAKS_VERSION = '1.18.13';
   const CONFIG_KEY = 'ha_tweaks_config';
   // Pre-1.9.0 keys: read once as fallback so existing users keep their toggles.
   const LEGACY_CONFIG_KEY = 'ha_mods_config';
@@ -4928,6 +4928,9 @@
         btn.setAttribute('data-ha-tweaks', 'collapse-toggle');
         btn.path = MDI_EXPAND_ALL;
         btn.label = 'Expand all';
+        // Keep the label for ARIA, but suppress the native title tooltip so
+        // only the larger ha-tooltip below appears on hover.
+        btn.hideTitle = true;
         btn.addEventListener('click', function (ev) {
           ev.stopPropagation();
           const outer = self._findOuterEditor();
@@ -8189,6 +8192,7 @@
     _observedRoots: null,
 
     _versionNavEl: null,
+    _versionTooltips: [],
     _navCommits: [],
     _currentIndex: -1,
     _previewMode: false,
@@ -8953,8 +8957,8 @@
 
         const btnBack = document.createElement('button');
         btnBack.type = 'button';
+        btnBack.id = 'ha-tweaks-version-nav-back';
         btnBack.className = 'version-nav-btn version-nav-back';
-        btnBack.title = 'Previous version';
         btnBack.setAttribute('aria-label', 'Previous version');
         btnBack.disabled = true;
         btnBack.innerHTML =
@@ -8966,9 +8970,9 @@
         });
 
         const badge = document.createElement('span');
+        badge.id = 'ha-tweaks-version-nav-badge';
         badge.className = 'version-badge';
         badge.textContent = 'Current';
-        badge.title = 'Click to browse all versions';
         badge.addEventListener('click', function (ev) {
           ev.stopPropagation();
           self.openHistory();
@@ -8976,8 +8980,8 @@
 
         const btnForward = document.createElement('button');
         btnForward.type = 'button';
+        btnForward.id = 'ha-tweaks-version-nav-forward';
         btnForward.className = 'version-nav-btn version-nav-forward';
-        btnForward.title = 'Next version';
         btnForward.setAttribute('aria-label', 'Next version');
         btnForward.disabled = true;
         btnForward.innerHTML =
@@ -8992,6 +8996,20 @@
         nav.appendChild(badge);
         nav.appendChild(btnForward);
 
+        const makeTip = function (targetId, text) {
+          const tip = document.createElement('ha-tooltip');
+          tip.setAttribute('placement', 'bottom');
+          tip.setAttribute('for', targetId);
+          tip.setAttribute('data-ha-tweaks', 'version-nav-tooltip');
+          tip.textContent = text;
+          return tip;
+        };
+        const tips = [
+          makeTip('ha-tweaks-version-nav-back', 'Previous version'),
+          makeTip('ha-tweaks-version-nav-badge', 'Click to browse all versions'),
+          makeTip('ha-tweaks-version-nav-forward', 'Next version'),
+        ];
+
         // Insert before Traces or the 3-dot dropdown in hass-subpage toolbar.
         const anchor =
           subpage.querySelector('ha-button[slot="toolbar-icon"]') ||
@@ -8999,10 +9017,17 @@
           subpage.querySelector('ha-button-menu[slot="toolbar-icon"]');
         if (anchor) {
           subpage.insertBefore(nav, anchor);
+          tips.forEach(function (tip) {
+            subpage.insertBefore(tip, anchor);
+          });
         } else {
           subpage.appendChild(nav);
+          tips.forEach(function (tip) {
+            subpage.appendChild(tip);
+          });
         }
         this._versionNavEl = nav;
+        this._versionTooltips = tips;
       }
       this._syncVersionNav(isYaml);
     },
@@ -9035,6 +9060,18 @@
         }
       }
       this._versionNavEl = null;
+      if (this._versionTooltips && this._versionTooltips.length) {
+        this._versionTooltips.forEach(function (tip) {
+          if (tip && tip.parentNode) {
+            try {
+              tip.parentNode.removeChild(tip);
+            } catch (e) {
+              // ignore
+            }
+          }
+        });
+      }
+      this._versionTooltips = [];
     },
 
     _editorDisplayName: function (domain, routeId) {
