@@ -1,5 +1,5 @@
 /*
- * HA Tweaks v1.18.4 - frontend QoL tweaks for Home Assistant
+ * HA Tweaks v1.18.5 - frontend QoL tweaks for Home Assistant
  * Single-file, zero-dependency frontend plugin for Home Assistant.
  * Load via configuration.yaml:
  *   frontend:
@@ -17,7 +17,7 @@
  */
 
 (() => {
-  const HA_TWEAKS_VERSION = '1.18.4';
+  const HA_TWEAKS_VERSION = '1.18.5';
   const CONFIG_KEY = 'ha_tweaks_config';
   // Pre-1.9.0 keys: read once as fallback so existing users keep their toggles.
   const LEGACY_CONFIG_KEY = 'ha_mods_config';
@@ -8324,6 +8324,13 @@
           this._previewMode = false;
           this._previewData = null;
           this._currentIndex = -1;
+          // The saved version is the new live version, so discard the old
+          // version list before rescanning. Appending to it would duplicate
+          // entries and make the arrows walk the same version twice.
+          this._navCommits = [];
+          this._versionContentCache = {};
+          this._scanId++;
+          this._isScanningCommits = false;
           this._updateNavUI();
           toast('Version restored and saved');
           const domain = this._editorDomain();
