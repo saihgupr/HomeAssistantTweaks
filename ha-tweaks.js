@@ -1,5 +1,5 @@
 /*
- * HA Tweaks v1.18.6 - frontend QoL tweaks for Home Assistant
+ * HA Tweaks v1.18.9 - frontend QoL tweaks for Home Assistant
  * Single-file, zero-dependency frontend plugin for Home Assistant.
  * Load via configuration.yaml:
  *   frontend:
@@ -17,7 +17,7 @@
  */
 
 (() => {
-  const HA_TWEAKS_VERSION = '1.18.6';
+  const HA_TWEAKS_VERSION = '1.18.9';
   const CONFIG_KEY = 'ha_tweaks_config';
   // Pre-1.9.0 keys: read once as fallback so existing users keep their toggles.
   const LEGACY_CONFIG_KEY = 'ha_mods_config';
@@ -7243,7 +7243,7 @@
         'min-height:0',
         'overflow-y:auto',
         'overflow-x:hidden',
-        'padding:0 0 32px 0',
+        'padding:0',
         'border-top:1px solid transparent',
       ].join(';');
       list.addEventListener('scroll', function () {
@@ -7253,6 +7253,61 @@
       }, { passive: true });
       dialog.appendChild(list);
       this._listEl = list;
+
+      const footer = document.createElement('div');
+      footer.setAttribute('data-ha-tweaks', 'settings-footer-links');
+      footer.style.cssText = [
+        'display:flex',
+        'justify-content:flex-end',
+        'align-items:center',
+        'gap:16px',
+        'padding:12px 16px 16px 16px',
+      ].join(';');
+      const makeFooterLink = function (href, label, iconName) {
+        const link = document.createElement('a');
+        link.href = href;
+        link.target = '_blank';
+        link.rel = 'noopener noreferrer';
+        link.title = label;
+        link.setAttribute('data-ha-tweaks', 'settings-footer-link');
+        link.style.cssText = [
+          'display:inline-flex',
+          'align-items:center',
+          'gap:6px',
+          'color:var(--secondary-text-color,#727272)',
+          'font-size:12px',
+          'line-height:1',
+          'text-decoration:none',
+          'transition:color 120ms ease',
+        ].join(';');
+        const icon = document.createElement('ha-icon');
+        icon.setAttribute('icon', iconName);
+        icon.style.cssText = '--mdc-icon-size:16px;color:inherit;flex:0 0 auto;';
+        const text = document.createElement('span');
+        text.textContent = label;
+        link.appendChild(icon);
+        link.appendChild(text);
+        link.addEventListener('mouseenter', function () {
+          link.style.color = 'var(--primary-text-color,#212121)';
+          link.style.textDecoration = 'underline';
+        });
+        link.addEventListener('mouseleave', function () {
+          link.style.color = 'var(--secondary-text-color,#727272)';
+          link.style.textDecoration = 'none';
+        });
+        return link;
+      };
+      footer.appendChild(
+        makeFooterLink(
+          'https://github.com/saihgupr/HomeAssistantTweaks',
+          'GitHub',
+          'mdi:github'
+        )
+      );
+      footer.appendChild(
+        makeFooterLink('https://ko-fi.com/saihgupr', 'Donate', 'mdi:heart-outline')
+      );
+      this._footerEl = footer;
 
       document.body.appendChild(dialog);
       this._dialogEl = dialog;
@@ -7417,6 +7472,7 @@
       const groups = this._filteredGroups();
       if (!groups.length) {
         list.appendChild(this._makeEmptyState());
+        if (this._footerEl) list.appendChild(this._footerEl);
         return;
       }
       groups.forEach(function (group) {
@@ -7434,6 +7490,7 @@
         });
         list.appendChild(nested);
       });
+      if (self._footerEl) list.appendChild(self._footerEl);
     },
 
     _checkVcAvailability: function () {
@@ -7501,6 +7558,7 @@
       const row = document.createElement('div');
       row.style.cssText =
         'display:flex;align-items:center;gap:16px;width:100%;' +
+        'box-sizing:border-box;' +
         'padding:20px;color:var(--secondary-text-color,#727272);';
       const icon = document.createElement('ha-icon');
       icon.setAttribute('icon', 'mdi:magnify');
@@ -7540,6 +7598,7 @@
         'align-items:center',
         'gap:16px',
         'width:100%',
+        'box-sizing:border-box',
         'min-height:64px',
         isChild ? 'padding:12px 12px 12px 16px' : 'padding:12px 16px',
         'border:0',
@@ -7694,6 +7753,7 @@
       this._listEl = null;
       this._searchEl = null;
       this._chipsEl = null;
+      this._footerEl = null;
       if (this._backdropEl && this._backdropEl.parentNode) {
         this._backdropEl.parentNode.removeChild(this._backdropEl);
       }
@@ -9311,6 +9371,7 @@
       row.setAttribute('data-ha-tweaks', 'version-history-loading');
       row.style.cssText =
         'display:flex;align-items:center;gap:16px;width:100%;' +
+        'box-sizing:border-box;' +
         'padding:12px 16px;';
       const text = document.createElement('div');
       text.style.cssText = 'flex:1 1 auto;min-width:0;';
@@ -9337,6 +9398,7 @@
       row.setAttribute('data-ha-tweaks', 'version-history-empty');
       row.style.cssText =
         'display:flex;align-items:center;gap:16px;width:100%;' +
+        'box-sizing:border-box;' +
         'padding:20px 16px;color:var(--secondary-text-color,#727272);';
       const text = document.createElement('div');
       text.style.cssText = 'min-width:0;';
@@ -9363,6 +9425,7 @@
       row.setAttribute('data-ha-tweaks', 'version-history-error');
       row.style.cssText =
         'display:flex;align-items:center;gap:16px;width:100%;' +
+        'box-sizing:border-box;' +
         'padding:20px 16px;';
       const text = document.createElement('div');
       text.style.cssText = 'flex:1 1 auto;min-width:0;';
@@ -9514,6 +9577,7 @@
       row.setAttribute('data-ha-tweaks', 'version-history-row');
       row.style.cssText =
         'display:flex;align-items:center;gap:16px;width:100%;' +
+        'box-sizing:border-box;' +
         'padding:12px 16px;';
 
       const text = document.createElement('div');

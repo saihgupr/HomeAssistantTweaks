@@ -40,7 +40,7 @@ Home Assistant Tweaks is a lightweight, native-feeling collection of quality-of-
    ```
 3. Restart Home Assistant once, then reload the page. Confirm in the developer console (`F12`):
    ```
-   [HA Tweaks v1.18.6] Initialized
+   [HA Tweaks v1.18.9] Initialized
    ```
    The loader probes the installed `ha-tweaks.js` for its current ETag and imports that build. After this one-time setup, plugin updates only need a page reload, not a Home Assistant restart.
 
@@ -54,7 +54,7 @@ Home Assistant Tweaks is a lightweight, native-feeling collection of quality-of-
      extra_module_url:
        - /local/ha-tweaks-loader.js
    ```
-3. Restart Home Assistant once, then reload. Confirm `[HA Tweaks v1.18.6] Initialized` in the console.
+3. Restart Home Assistant once, then reload. Confirm `[HA Tweaks v1.18.9] Initialized` in the console.
 
 > **Note:** The loader keeps the `extra_module_url` stable. It probes `/local/ha-tweaks.js` for its current ETag and imports that revision, so deploying a new `ha-tweaks.js` only needs a page reload, not a Home Assistant restart. Keep both files in the same directory.
 
@@ -142,7 +142,7 @@ If a tweak is not appearing or behaving as expected:
 2. **Verify Initialization:**
    Check the developer console (`F12` or `Cmd + Option + I`). You should see:
    ```text
-   [HA Tweaks v1.18.6] Initialized
+   [HA Tweaks v1.18.9] Initialized
    ```
    If not present, check that `extra_module_url` is added under `frontend:` in `configuration.yaml` and not just as a Lovelace dashboard resource.
 3. **Inspect Settings & Cloud Sync:**

@@ -5,6 +5,21 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.18.9] - 2026-11-07
+
+### Fixed
+- Settings rows now use border-box sizing, so their padding no longer makes them wider than the menu and clips the toggle switches at the right edge. The same fix covers rows inside the version history dialog.
+
+## [1.18.8] - 2026-11-07
+
+### Fixed
+- The GitHub and Donate links now sit inside the Settings list at the end of its content instead of rendering as a fixed footer over the toggle rows.
+
+## [1.18.7] - 2026-11-07
+
+### Added
+- Added GitHub and Donate links with icons at the bottom right of the Settings menu, in that order, matching the Time Machine footer style.
+
 ## [1.18.6] - 2026-11-07
 
 ### Changed
