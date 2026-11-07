@@ -17,7 +17,7 @@
  */
 
 (() => {
-  const HA_TWEAKS_VERSION = '1.18.11';
+  const HA_TWEAKS_VERSION = '1.18.12';
   const CONFIG_KEY = 'ha_tweaks_config';
   // Pre-1.9.0 keys: read once as fallback so existing users keep their toggles.
   const LEGACY_CONFIG_KEY = 'ha_mods_config';
@@ -7323,20 +7323,6 @@
 
       this._render();
       this._checkVcAvailability();
-
-      // Match HA's quick bar: the search field is ready for typing as soon
-      // as the popup appears. This is programmatic focus, not a tab stop.
-      try {
-        input.focus({ preventScroll: true });
-        if (typeof input.select === 'function') input.select();
-      } catch (e) {
-        try {
-          input.focus();
-          if (typeof input.select === 'function') input.select();
-        } catch (ignore) {
-          // Focus is best-effort; the UI still works with pointer/touch.
-        }
-      }
     },
 
     _makeItemEntry: function (tweak, item) {
