@@ -1,5 +1,5 @@
 /*
- * HA Tweaks v1.18.3 - frontend QoL tweaks for Home Assistant
+ * HA Tweaks v1.18.4 - frontend QoL tweaks for Home Assistant
  * Single-file, zero-dependency frontend plugin for Home Assistant.
  * Load via configuration.yaml:
  *   frontend:
@@ -17,7 +17,7 @@
  */
 
 (() => {
-  const HA_TWEAKS_VERSION = '1.18.3';
+  const HA_TWEAKS_VERSION = '1.18.4';
   const CONFIG_KEY = 'ha_tweaks_config';
   // Pre-1.9.0 keys: read once as fallback so existing users keep their toggles.
   const LEGACY_CONFIG_KEY = 'ha_mods_config';
@@ -7971,9 +7971,6 @@
       '  transition: color 0.15s ease, opacity 0.2s ease;',
       '  box-sizing: border-box;',
       '  flex: 0 0 auto;',
-      '}',
-      '.version-nav[data-ha-tweaks="version-nav"]:not(.is-historical-mode) .version-badge {',
-      '  width: 156px;',
       '}',
       '.version-nav[data-ha-tweaks="version-nav"].is-historical-mode {',
       '  background: rgba(251, 191, 36, 0.08);',

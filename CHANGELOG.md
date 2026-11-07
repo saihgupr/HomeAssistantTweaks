@@ -5,6 +5,11 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.18.4] - 2026-11-07
+
+### Changed
+- The editor version navigation now keeps one width in every state, using the historical preview width for the current state as well, so stepping through versions no longer resizes the bar.
+
 ## [1.18.3] - 2026-11-07
 
 ### Fixed
