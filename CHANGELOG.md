@@ -5,6 +5,11 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.17.1] - 2026-11-07
+
+### Fixed
+- Fixed Version history ingress communication and button visibility: discover the Version Control addon's `ingress_url` via `supervisor/ingress/info`, mint ingress session tokens via `supervisor/ingress/session`, and establish the `ingress_session` cookie required by Supervisor. Render the toolbar button using the native `mdi:history` SVG path and replace sticky failure cache with a self-healing 15-second retry cooldown. Also exposed `window.HATweaks.vcClient` and `window.HATweaks.editorVersionHistory` for console diagnosis.
+
 ## [1.17.0] - 2026-11-07
 
 ### Added

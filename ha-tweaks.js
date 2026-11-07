@@ -1,5 +1,5 @@
 /*
- * HA Tweaks v1.17.0 - frontend QoL tweaks for Home Assistant
+ * HA Tweaks v1.17.1 - frontend QoL tweaks for Home Assistant
  * Single-file, zero-dependency frontend plugin for Home Assistant.
  * Load via configuration.yaml:
  *   frontend:
@@ -17,7 +17,7 @@
  */
 
 (() => {
-  const HA_TWEAKS_VERSION = '1.17.0';
+  const HA_TWEAKS_VERSION = '1.17.1';
   const CONFIG_KEY = 'ha_tweaks_config';
   // Pre-1.9.0 keys: read once as fallback so existing users keep their toggles.
   const LEGACY_CONFIG_KEY = 'ha_mods_config';
@@ -7624,9 +7624,14 @@
    * ================================================================ */
   const VcClient = {
     _slug: null,
+    _baseUrl: null,
+    _baseUrlSlug: null,
+    _session: null,
+    _sessionSlug: null,
     _token: null,
     _tokenSlug: null,
-    _unavailable: {},
+    _lastProbeResult: null,
+    _lastProbeTime: 0,
 
     isAdmin: function () {
       try {
@@ -7678,10 +7683,10 @@
         });
     },
 
-    ensureSession: function (slug, force) {
+    getIngressUrl: function (slug) {
       const self = this;
-      if (!force && self._token && self._tokenSlug === slug) {
-        return Promise.resolve(self._token);
+      if (self._baseUrl && self._baseUrlSlug === slug) {
+        return Promise.resolve(self._baseUrl);
       }
       let hass = null;
       try {
@@ -7692,22 +7697,106 @@
       if (!hass || typeof hass.callWS !== 'function') {
         return Promise.reject(new Error('no callWS'));
       }
+      // Primary: supervisor/ingress/info (standard HA frontend call)
+      return hass
+        .callWS({ type: 'supervisor/ingress/info', slug: slug })
+        .then(function (res) {
+          if (res && res.state && res.state !== 'started') {
+            throw new Error('addon not running (' + res.state + ')');
+          }
+          const url = (res && res.ingress_url) || null;
+          if (!url) throw new Error('no ingress_url in ingress info');
+          const clean = url.replace(/\/+$/, '');
+          self._baseUrl = clean;
+          self._baseUrlSlug = slug;
+          return clean;
+        })
+        .catch(function () {
+          // Fallback: supervisor/api endpoint /addons/{slug}/info
+          return hass
+            .callWS({
+              type: 'supervisor/api',
+              endpoint: '/addons/' + slug + '/info',
+              method: 'get',
+            })
+            .then(function (res) {
+              const data = (res && res.data) || res || {};
+              if (data.state && data.state !== 'started') {
+                throw new Error('addon not running (' + data.state + ')');
+              }
+              const url = data.ingress_url || null;
+              if (!url) throw new Error('no ingress_url in addon info');
+              const clean = url.replace(/\/+$/, '');
+              self._baseUrl = clean;
+              self._baseUrlSlug = slug;
+              return clean;
+            });
+        });
+    },
+
+    _setIngressCookie: function (session) {
+      try {
+        const isHttps =
+          typeof location !== 'undefined' && location.protocol === 'https:';
+        document.cookie =
+          'ingress_session=' +
+          session +
+          ';path=/api/hassio_ingress/;SameSite=Strict' +
+          (isHttps ? ';Secure' : '');
+      } catch (e) {
+        // ignore in non-browser environments
+      }
+    },
+
+    ensureSession: function (slug, force) {
+      const self = this;
+      if (!force && self._session && self._sessionSlug === slug) {
+        return Promise.resolve(self._session);
+      }
+      let hass = null;
+      try {
+        hass = getHass();
+      } catch (e) {
+        hass = null;
+      }
+      if (!hass || typeof hass.callWS !== 'function') {
+        return Promise.reject(new Error('no callWS'));
+      }
+      const extractSession = function (res) {
+        return (
+          (res && res.session) ||
+          (res && res.data && res.data.session) ||
+          (res && res.data && res.data.data && res.data.data.session) ||
+          null
+        );
+      };
+      const storeSession = function (session) {
+        if (!session) throw new Error('no ingress session token');
+        self._setIngressCookie(session);
+        self._session = session;
+        self._sessionSlug = slug;
+        self._token = session;
+        self._tokenSlug = slug;
+        return session;
+      };
+      // Primary: dedicated supervisor/ingress/session websocket command (used by HA frontend)
       return hass
         .callWS({
-          type: 'supervisor/api',
-          endpoint: '/ingress/session',
-          method: 'post',
-          data: { addon: slug },
+          type: 'supervisor/ingress/session',
+          slug: slug,
         })
-        .then(function (res) {
-          const token =
-            (res && res.session) ||
-            (res && res.data && res.data.session) ||
-            null;
-          if (!token) throw new Error('no ingress session token');
-          self._token = token;
-          self._tokenSlug = slug;
-          return token;
+        .then(extractSession)
+        .then(storeSession)
+        .catch(function () {
+          // Fallback: supervisor/api endpoint /ingress/session without payload
+          return hass
+            .callWS({
+              type: 'supervisor/api',
+              endpoint: '/ingress/session',
+              method: 'post',
+            })
+            .then(extractSession)
+            .then(storeSession);
         });
     },
 
@@ -7717,54 +7806,66 @@
       const body = opts && opts.body !== undefined ? opts.body : null;
       return self.discoverSlug().then(function (slug) {
         if (!slug) throw new Error('version control addon not found');
-        const doFetch = function (token) {
-          const init = { method: method, credentials: 'same-origin' };
-          if (body !== null && body !== undefined) {
-            init.headers = { 'Content-Type': 'application/json' };
-            try {
-              init.body = JSON.stringify(body);
-            } catch (e) {
-              init.body = '{}';
+        return self.getIngressUrl(slug).then(function (baseUrl) {
+          const doFetch = function () {
+            const init = { method: method, credentials: 'same-origin' };
+            if (body !== null && body !== undefined) {
+              init.headers = { 'Content-Type': 'application/json' };
+              try {
+                init.body = JSON.stringify(body);
+              } catch (e) {
+                init.body = '{}';
+              }
             }
-          }
-          return fetch('/api/hassio_ingress/' + token + vcPath, init);
-        };
-        return self.ensureSession(slug, false).then(function (token) {
-          return doFetch(token).then(function (res) {
-            if (res && (res.status === 401 || res.status === 403)) {
-              return self.ensureSession(slug, true).then(function (fresh) {
-                return doFetch(fresh);
-              });
-            }
-            return res;
+            const path =
+              vcPath.charAt(0) === '/' ? vcPath : '/' + vcPath;
+            return fetch(baseUrl + path, init);
+          };
+          return self.ensureSession(slug, false).then(function () {
+            return doFetch().then(function (res) {
+              if (res && (res.status === 401 || res.status === 403)) {
+                return self.ensureSession(slug, true).then(function () {
+                  return doFetch();
+                });
+              }
+              return res;
+            });
           });
         });
       });
     },
 
-    // Negative results are cached per session so a missing or
-    // unreachable VC addon does not re-trigger supervisor + ingress
-    // traffic on every editor visit.
-    probeAvailable: function (domain, routeId) {
+    // Probe reachability of the Version Control addon.
+    // Caches positive result for 60s, negative for 15s (self-healing after startup).
+    // Set force=true to bypass cache.
+    probeAvailable: function (domain, routeId, force) {
       const self = this;
-      const key = domain + ':' + routeId;
-      if (self._unavailable[key]) return Promise.resolve(false);
       if (!self.isAdmin()) return Promise.resolve(false);
+      const now = Date.now();
+      if (!force && self._lastProbeResult !== null && self._lastProbeResult !== undefined) {
+        const ttl = self._lastProbeResult ? 60000 : 15000;
+        if (now - self._lastProbeTime < ttl) {
+          return Promise.resolve(self._lastProbeResult);
+        }
+      }
       return self
         .vcFetch('/api/health', { method: 'GET' })
         .then(function (res) {
-          if (!res || !res.ok) {
-            self._unavailable[key] = true;
-            return false;
-          }
-          return true;
+          const ok = !!(res && res.ok);
+          self._lastProbeResult = ok;
+          self._lastProbeTime = Date.now();
+          return ok;
         })
         .catch(function () {
-          self._unavailable[key] = true;
+          self._lastProbeResult = false;
+          self._lastProbeTime = Date.now();
           return false;
         });
     },
   };
+
+  const MDI_HISTORY =
+    'M13.5,8H12V13L16.28,15.54L17,14.33L13.5,12.25V8M13,3A9,9 0 0,0 4,12H1L4.96,16.03L9,12H6A7,7 0 0,1 13,5A7,7 0 0,1 20,12A7,7 0 0,1 13,19C11.07,19 9.32,18.21 8.06,16.94L6.64,18.36C8.27,20 10.5,21 13,21A9,9 0 0,0 22,12A9,9 0 0,0 13,3Z';
 
   /* ================================================================
    * Tweak: Version history in editors (Version Control ingress)
@@ -7869,6 +7970,15 @@
     },
 
     _editorId: function () {
+      try {
+        const outer = this._getOuter();
+        if (outer) {
+          const id = outer.automationId || outer.scriptId;
+          if (typeof id === 'string' && id) return id;
+        }
+      } catch (e) {
+        // ignore
+      }
       const m = (window.location.pathname || '').match(
         /^\/config\/(?:automation|script)\/(?:edit|show)\/([^/?#]+)/
       );
@@ -8029,8 +8139,7 @@
       }
     },
 
-    // One availability probe per editor id; the button shows/hides on
-    // the cached result afterwards.
+    // Availability probe; the button shows/hides on the cached result.
     _probeThenSync: function () {
       const self = this;
       let domain = null;
@@ -8050,9 +8159,6 @@
       const key = domain + ':' + routeId;
       if (this._probeKey !== key) {
         this._probeKey = key;
-        this._available = false;
-        this._probeInFlight = false;
-        this._syncToolbarButton();
       }
       if (this._available || this._probeInFlight) return;
       // Non-admins never see the button; skip supervisor traffic entirely.
@@ -8062,7 +8168,6 @@
         .then(function (ok) {
           self._probeInFlight = false;
           try {
-            if (self._probeKey !== key) return;
             self._available = !!ok;
             self._syncToolbarButton();
           } catch (e) {
@@ -8085,7 +8190,7 @@
         btn.id = 'ha-tweaks-button-history';
         btn.setAttribute('slot', 'toolbar-icon');
         btn.setAttribute('data-ha-tweaks', 'version-history');
-        btn.setAttribute('icon', 'mdi:history');
+        btn.path = MDI_HISTORY;
         try {
           btn.label = 'Version history';
         } catch (e) {
@@ -8110,11 +8215,11 @@
         tooltip.setAttribute('data-ha-tweaks', 'version-history-tooltip');
         tooltip.textContent = 'Version history';
 
-        // Insert before the Save anchor so the order stays
-        // [Collapse][History][Save].
+        // Insert before Traces or the 3-dot dropdown in hass-subpage toolbar.
         const anchor =
           subpage.querySelector('ha-button[slot="toolbar-icon"]') ||
-          subpage.querySelector('ha-dropdown[slot="toolbar-icon"]');
+          subpage.querySelector('ha-dropdown[slot="toolbar-icon"]') ||
+          subpage.querySelector('ha-button-menu[slot="toolbar-icon"]');
         if (anchor) {
           subpage.insertBefore(btn, anchor);
           subpage.insertBefore(tooltip, anchor);
@@ -8139,6 +8244,9 @@
         } catch (e) {
           // ignore
         }
+      }
+      if (this._toolbarBtn.path !== MDI_HISTORY) {
+        this._toolbarBtn.path = MDI_HISTORY;
       }
       const show = !yaml && !!this._available;
       this._toolbarBtn.style.display = show ? '' : 'none';
@@ -9113,6 +9221,8 @@
     window.HATweaks.getHass = getHass;
     window.HATweaks.querySelectorDeep = querySelectorDeep;
     window.HATweaks.querySelectorAllDeep = querySelectorAllDeep;
+    window.HATweaks.vcClient = VcClient;
+    window.HATweaks.editorVersionHistory = EditorVersionHistoryTweak;
     window.HATweaks.openSettings = function () {
       SettingsModal.toggle();
     };
