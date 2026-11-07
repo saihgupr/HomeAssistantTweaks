@@ -5,6 +5,11 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.18.6] - 2026-11-07
+
+### Changed
+- The Version history tweak remains visible in Settings when the Version Control addon is not installed, and now shows an inline note next to its title: "Requires Home Assistant Version Control to work." The addon name links to its repository.
+
 ## [1.18.5] - 2026-11-07
 
 ### Fixed

@@ -1,5 +1,5 @@
 /*
- * HA Tweaks v1.18.5 - frontend QoL tweaks for Home Assistant
+ * HA Tweaks v1.18.6 - frontend QoL tweaks for Home Assistant
  * Single-file, zero-dependency frontend plugin for Home Assistant.
  * Load via configuration.yaml:
  *   frontend:
@@ -17,7 +17,7 @@
  */
 
 (() => {
-  const HA_TWEAKS_VERSION = '1.18.5';
+  const HA_TWEAKS_VERSION = '1.18.6';
   const CONFIG_KEY = 'ha_tweaks_config';
   // Pre-1.9.0 keys: read once as fallback so existing users keep their toggles.
   const LEGACY_CONFIG_KEY = 'ha_mods_config';
@@ -6999,6 +6999,9 @@
     'new-script': 'mdi:script-text',
   };
 
+  const VC_ADDON_REPO_URL =
+    'https://github.com/saihgupr/HomeAssistantVersionControl';
+
   const SettingsModal = {
     _open: false,
     _dialogEl: null,
@@ -7009,6 +7012,8 @@
     _onKeyDown: null,
     _query: '',
     _section: 'all',
+    _vcInstalled: null,
+    _vcCheckInFlight: false,
 
     toggle: function () {
       if (this._open) this.close();
@@ -7262,6 +7267,7 @@
       window.addEventListener('keydown', this._onKeyDown, { capture: true });
 
       this._render();
+      this._checkVcAvailability();
 
       // Match HA's quick bar: the search field is ready for typing as soon
       // as the popup appears. This is programmatic focus, not a tab stop.
@@ -7430,6 +7436,67 @@
       });
     },
 
+    _checkVcAvailability: function () {
+      const self = this;
+      if (self._vcCheckInFlight) return;
+      let hass = null;
+      try {
+        hass = getHass();
+      } catch (e) {
+        hass = null;
+      }
+      if (!hass || typeof hass.callWS !== 'function') return;
+      self._vcCheckInFlight = true;
+      let probe = null;
+      try {
+        probe = VcClient.discoverSlug();
+      } catch (e) {
+        probe = Promise.resolve(null);
+      }
+      Promise.resolve(probe)
+        .then(function (slug) {
+          self._vcCheckInFlight = false;
+          self._vcInstalled = !!slug;
+          if (self._open) self._renderList();
+        })
+        .catch(function () {
+          self._vcCheckInFlight = false;
+          self._vcInstalled = false;
+          if (self._open) self._renderList();
+        });
+    },
+
+    _showVcNote: function (entry) {
+      return (
+        this._vcInstalled === false &&
+        entry &&
+        entry.group === 'tweak' &&
+        entry.id === 'editor-version-history'
+      );
+    },
+
+    _makeVcNote: function () {
+      const wrap = document.createElement('span');
+      wrap.setAttribute('data-ha-tweaks', 'settings-vc-required');
+      wrap.style.cssText =
+        'font-size:12px;line-height:1.35;' +
+        'color:var(--secondary-text-color,#727272);';
+      const link = document.createElement('a');
+      link.href = VC_ADDON_REPO_URL;
+      link.textContent = 'Home Assistant Version Control';
+      link.target = '_blank';
+      link.rel = 'noopener noreferrer';
+      link.style.cssText =
+        'color:inherit;font-weight:700;text-decoration:underline;';
+      link.addEventListener('click', function (ev) {
+        ev.stopPropagation();
+      });
+      wrap.appendChild(document.createTextNode('Requires '));
+      wrap.appendChild(link);
+      wrap.appendChild(document.createTextNode(' to work.'));
+      return wrap;
+    },
+
     _makeEmptyState: function () {
       const row = document.createElement('div');
       row.style.cssText =
@@ -7458,8 +7525,7 @@
       const self = this;
       const enabled = !!entry.enabled;
       const isChild = entry.group === 'item';
-      const row = document.createElement('button');
-      row.type = 'button';
+      const row = document.createElement('div');
       row.setAttribute('role', 'switch');
       row.setAttribute('tabindex', '-1');
       row.setAttribute('aria-checked', enabled ? 'true' : 'false');
@@ -7486,6 +7552,14 @@
       ].join(';');
       row.addEventListener('mousedown', function (ev) {
         // Keep the quick-bar search field focused, like HA's virtual list.
+        let target = ev && ev.target;
+        try {
+          if (target && typeof target.closest === 'function' && target.closest('a')) {
+            return;
+          }
+        } catch (e) {
+          // fall through
+        }
         if (typeof ev.preventDefault === 'function') ev.preventDefault();
       });
       row.addEventListener('mouseenter', function () {
@@ -7504,6 +7578,10 @@
 
       const text = document.createElement('div');
       text.style.cssText = 'flex:1 1 auto;min-width:0;';
+      const heading = document.createElement('div');
+      heading.style.cssText =
+        'display:flex;align-items:baseline;flex-wrap:wrap;' +
+        'gap:2px 8px;min-width:0;';
       const headline = document.createElement('div');
       headline.textContent = entry.title;
       headline.style.cssText =
@@ -7522,7 +7600,11 @@
         '-webkit-box-orient:vertical',
         'overflow:hidden',
       ].join(';');
-      text.appendChild(headline);
+      heading.appendChild(headline);
+      if (self._showVcNote(entry)) {
+        heading.appendChild(self._makeVcNote());
+      }
+      text.appendChild(heading);
       text.appendChild(supporting);
       row.appendChild(text);
 
@@ -7561,7 +7643,21 @@
       }
       paint();
 
-      row.addEventListener('click', function () {
+      row.addEventListener('keydown', function (ev) {
+        if (!ev || (ev.key !== 'Enter' && ev.key !== ' ')) return;
+        ev.preventDefault();
+        row.click();
+      });
+
+      row.addEventListener('click', function (ev) {
+        let target = ev && ev.target;
+        try {
+          if (target && typeof target.closest === 'function' && target.closest('a')) {
+            return;
+          }
+        } catch (e) {
+          // fall through to the toggle
+        }
         const next = row.getAttribute('aria-checked') !== 'true';
         row.setAttribute('aria-checked', next ? 'true' : 'false');
         paint();
