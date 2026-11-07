@@ -1,5 +1,5 @@
 /*
- * HA Tweaks v1.16.3 - frontend QoL tweaks for Home Assistant
+ * HA Tweaks v1.17.0 - frontend QoL tweaks for Home Assistant
  * Single-file, zero-dependency frontend plugin for Home Assistant.
  * Load via configuration.yaml:
  *   frontend:
@@ -17,7 +17,7 @@
  */
 
 (() => {
-  const HA_TWEAKS_VERSION = '1.16.3';
+  const HA_TWEAKS_VERSION = '1.17.0';
   const CONFIG_KEY = 'ha_tweaks_config';
   // Pre-1.9.0 keys: read once as fallback so existing users keep their toggles.
   const LEGACY_CONFIG_KEY = 'ha_mods_config';
@@ -6978,6 +6978,7 @@
     'editor-row-context-menu': 'mdi:form-select',
     'dashboard-empty-menu': 'mdi:view-dashboard',
     'auto-collapse-editor': 'mdi:arrow-collapse-all',
+    'editor-version-history': 'mdi:history',
     'inline-title-rename': 'mdi:rename-box',
     'right-click-hold': 'mdi:mouse-right-click',
     'chip-active-for': 'mdi:mushroom',
@@ -7607,6 +7608,1394 @@
     },
   };
 
+  /* ================================================================
+   * Version Control ingress client (zero-dependency, same-origin)
+   * - Admin-gated via hass.user.is_admin: supervisor WS calls reject
+   *   non-admins, so the probe stops before any WS traffic for them.
+   * - Addon discovery mirrors the native Editor lookup: the first
+   *   addon whose slug contains 'version-control'.
+   * - Ingress sessions are short-lived: the token is cached per slug
+   *   and re-minted exactly once on 401/403.
+   * - The native UI edits automations.yaml / scripts.yaml, so vc ids
+   *   are `automations:automations.yaml:<routeId>` and
+   *   `scripts:scripts.yaml:<routeId>` (VC parseId shape
+   *   type:filePath:identifier; the identifier may itself contain ':'
+   *   so routeId is never split, only encoded as a whole).
+   * ================================================================ */
+  const VcClient = {
+    _slug: null,
+    _token: null,
+    _tokenSlug: null,
+    _unavailable: {},
+
+    isAdmin: function () {
+      try {
+        const hass = getHass();
+        return !!(hass && hass.user && hass.user.is_admin);
+      } catch (e) {
+        return false;
+      }
+    },
+
+    vcIdFor: function (domain, routeId) {
+      const file = domain === 'script' ? 'scripts.yaml' : 'automations.yaml';
+      const type = domain === 'script' ? 'scripts' : 'automations';
+      return type + ':' + file + ':' + routeId;
+    },
+
+    kindFor: function (domain) {
+      return domain === 'script' ? 'script' : 'automation';
+    },
+
+    discoverSlug: function () {
+      const self = this;
+      if (self._slug) return Promise.resolve(self._slug);
+      let hass = null;
+      try {
+        hass = getHass();
+      } catch (e) {
+        hass = null;
+      }
+      if (!hass || typeof hass.callWS !== 'function') return Promise.resolve(null);
+      return hass
+        .callWS({ type: 'supervisor/api', endpoint: '/addons', method: 'get' })
+        .then(function (res) {
+          const addons =
+            (res && res.data && res.data.addons) || (res && res.addons) || [];
+          let found = null;
+          for (let i = 0; i < addons.length; i++) {
+            const slug = addons[i] && addons[i].slug;
+            if (slug && String(slug).indexOf('version-control') >= 0) {
+              found = slug;
+              break;
+            }
+          }
+          if (found) self._slug = found;
+          return found;
+        })
+        .catch(function () {
+          return null;
+        });
+    },
+
+    ensureSession: function (slug, force) {
+      const self = this;
+      if (!force && self._token && self._tokenSlug === slug) {
+        return Promise.resolve(self._token);
+      }
+      let hass = null;
+      try {
+        hass = getHass();
+      } catch (e) {
+        hass = null;
+      }
+      if (!hass || typeof hass.callWS !== 'function') {
+        return Promise.reject(new Error('no callWS'));
+      }
+      return hass
+        .callWS({
+          type: 'supervisor/api',
+          endpoint: '/ingress/session',
+          method: 'post',
+          data: { addon: slug },
+        })
+        .then(function (res) {
+          const token =
+            (res && res.session) ||
+            (res && res.data && res.data.session) ||
+            null;
+          if (!token) throw new Error('no ingress session token');
+          self._token = token;
+          self._tokenSlug = slug;
+          return token;
+        });
+    },
+
+    vcFetch: function (vcPath, opts) {
+      const self = this;
+      const method = (opts && opts.method) || 'GET';
+      const body = opts && opts.body !== undefined ? opts.body : null;
+      return self.discoverSlug().then(function (slug) {
+        if (!slug) throw new Error('version control addon not found');
+        const doFetch = function (token) {
+          const init = { method: method, credentials: 'same-origin' };
+          if (body !== null && body !== undefined) {
+            init.headers = { 'Content-Type': 'application/json' };
+            try {
+              init.body = JSON.stringify(body);
+            } catch (e) {
+              init.body = '{}';
+            }
+          }
+          return fetch('/api/hassio_ingress/' + token + vcPath, init);
+        };
+        return self.ensureSession(slug, false).then(function (token) {
+          return doFetch(token).then(function (res) {
+            if (res && (res.status === 401 || res.status === 403)) {
+              return self.ensureSession(slug, true).then(function (fresh) {
+                return doFetch(fresh);
+              });
+            }
+            return res;
+          });
+        });
+      });
+    },
+
+    // Negative results are cached per session so a missing or
+    // unreachable VC addon does not re-trigger supervisor + ingress
+    // traffic on every editor visit.
+    probeAvailable: function (domain, routeId) {
+      const self = this;
+      const key = domain + ':' + routeId;
+      if (self._unavailable[key]) return Promise.resolve(false);
+      if (!self.isAdmin()) return Promise.resolve(false);
+      return self
+        .vcFetch('/api/health', { method: 'GET' })
+        .then(function (res) {
+          if (!res || !res.ok) {
+            self._unavailable[key] = true;
+            return false;
+          }
+          return true;
+        })
+        .catch(function () {
+          self._unavailable[key] = true;
+          return false;
+        });
+    },
+  };
+
+  /* ================================================================
+   * Tweak: Version history in editors (Version Control ingress)
+   * - Opt-in (defaultEnabled false): a history toolbar button in the
+   *   native automation/script editor. Hidden for non-admins, outside
+   *   editor routes, in YAML mode, for unsaved (`new`) editors, and
+   *   until VC probes reachable (one probe per editor id).
+   * - One history-metadata payload per open; rows show the message
+   *   headline plus date, author and short hash. Restore is offered
+   *   on edit routes for admins only.
+   * - Restore POSTs {commitHash} once per click with a per-row
+   *   Restoring state. Success toasts, closes, and refreshes the
+   *   editor (location.reload fallback); failure keeps the modal open
+   *   with an inline error and Retry.
+   * ================================================================ */
+  const EditorVersionHistoryTweak = {
+    id: 'editor-version-history',
+    name: 'Version history in editors',
+    description:
+      'Show Version Control history inside the native automation/script editor with restore.',
+    defaultEnabled: false,
+
+    _activePath: null,
+    _outer: null,
+    _probeKey: null,
+    _probeInFlight: false,
+    _available: false,
+    _watchTimer: null,
+    _lastTick: 0,
+    _observers: [],
+    _observedRoots: null,
+    _toolbarBtn: null,
+    _toolbarTooltip: null,
+
+    _modalOpen: false,
+    _backdropEl: null,
+    _dialogEl: null,
+    _listEl: null,
+    _searchEl: null,
+    _searchWrapEl: null,
+    _onKeyDown: null,
+    _lastFocused: null,
+    _commits: [],
+    _rendered: 0,
+    _filter: '',
+    _sentinel: null,
+    _moreObserver: null,
+
+    init: function () {
+      try {
+        this._observedRoots =
+          typeof WeakSet !== 'undefined' ? new WeakSet() : null;
+      } catch (e) {
+        this._observedRoots = null;
+      }
+      this._probeKey = null;
+      this._available = false;
+      this._probeInFlight = false;
+      this.onNavigate(window.location.pathname);
+    },
+
+    destroy: function () {
+      this._cleanupEditor();
+      this._closeModal();
+      this._activePath = null;
+    },
+
+    onNavigate: function (path) {
+      const currentPath =
+        typeof path === 'string' ? path : window.location.pathname;
+      if (!this._isEditorRoute(currentPath)) {
+        this._cleanupEditor();
+        this._closeModal();
+        this._activePath = null;
+        return;
+      }
+      if (this._activePath !== currentPath) {
+        this._activePath = currentPath;
+        this._probeKey = null;
+        this._available = false;
+        this._probeInFlight = false;
+        this._closeModal();
+      }
+      this._startEditorWatch();
+    },
+
+    _isEditorRoute: function (path) {
+      return /^\/config\/(automation|script)\/(edit|show)(\/|$)/.test(path || '');
+    },
+
+    _isShowRoute: function (path) {
+      return /^\/config\/(automation|script)\/show(\/|$)/.test(
+        path || window.location.pathname || ''
+      );
+    },
+
+    _editorDomain: function () {
+      const m = (window.location.pathname || '').match(
+        /^\/config\/(automation|script)\/(?:edit|show)(\/|$)/
+      );
+      return m ? m[1] : null;
+    },
+
+    _editorId: function () {
+      const m = (window.location.pathname || '').match(
+        /^\/config\/(?:automation|script)\/(?:edit|show)\/([^/?#]+)/
+      );
+      if (!m) return null;
+      try {
+        return decodeURIComponent(m[1]);
+      } catch (e) {
+        return m[1];
+      }
+    },
+
+    _findOuterEditor: function () {
+      return querySelectorDeep('ha-automation-editor, ha-script-editor');
+    },
+
+    _findManualEditor: function (outer) {
+      const scope = (outer && outer.shadowRoot) || outer || document;
+      return querySelectorDeep(
+        'manual-automation-editor, manual-script-editor, blueprint-automation-editor, blueprint-script-editor',
+        scope
+      );
+    },
+
+    _isYamlMode: function (outer, manual) {
+      if (!outer) return false;
+      try {
+        if (outer.mode === 'yaml') return true;
+      } catch (e) {
+        // ignore
+      }
+      const scope = outer.shadowRoot || outer;
+      if (!manual && querySelectorDeep('ha-yaml-editor', scope)) return true;
+      return false;
+    },
+
+    _getOuter: function () {
+      try {
+        if (this._outer && this._outer.isConnected) return this._outer;
+      } catch (e) {
+        // fall through to a fresh lookup
+      }
+      let found = null;
+      try {
+        found = this._findOuterEditor();
+      } catch (e) {
+        found = null;
+      }
+      this._outer = found;
+      return found;
+    },
+
+    _observeRoot: function (root) {
+      if (!root || typeof MutationObserver === 'undefined') return;
+      if (this._observedRoots && this._observedRoots.has(root)) return;
+      if (this._observedRoots) this._observedRoots.add(root);
+      const self = this;
+      try {
+        const obs = new MutationObserver(function () {
+          try {
+            self._tickEditor();
+          } catch (e) {
+            // ignore
+          }
+        });
+        obs.observe(root, { childList: true, subtree: true });
+        this._observers.push(obs);
+      } catch (e) {
+        // ignore
+      }
+    },
+
+    _cleanupEditor: function () {
+      if (this._watchTimer) {
+        clearInterval(this._watchTimer);
+        this._watchTimer = null;
+      }
+      if (this._observers && this._observers.length) {
+        this._observers.forEach(function (obs) {
+          try {
+            obs.disconnect();
+          } catch (e) {
+            // ignore
+          }
+        });
+      }
+      this._observers = [];
+      try {
+        this._observedRoots =
+          typeof WeakSet !== 'undefined' ? new WeakSet() : null;
+      } catch (e) {
+        this._observedRoots = null;
+      }
+      this._removeToolbarButton();
+      this._outer = null;
+    },
+
+    _startEditorWatch: function () {
+      const self = this;
+      try {
+        this._tickEditor();
+      } catch (e) {
+        // ignore
+      }
+      if (this._watchTimer) clearInterval(this._watchTimer);
+      this._watchTimer = setInterval(function () {
+        if (!self._isEditorRoute(window.location.pathname)) {
+          self._cleanupEditor();
+          return;
+        }
+        try {
+          self._tickEditor();
+        } catch (e) {
+          // ignore
+        }
+      }, 1000);
+    },
+
+    _tickEditor: function () {
+      const now = Date.now();
+      if (now - this._lastTick < 200) return;
+      this._lastTick = now;
+      const outer = this._getOuter();
+      if (!outer || !outer.shadowRoot) return;
+      this._observeRoot(outer.shadowRoot);
+      let subpage = null;
+      try {
+        subpage = outer.shadowRoot.querySelector('hass-subpage');
+      } catch (e) {
+        subpage = null;
+      }
+      let manual = null;
+      try {
+        manual = this._findManualEditor(outer);
+      } catch (e) {
+        manual = null;
+      }
+      let isYaml = false;
+      try {
+        isYaml = this._isYamlMode(outer, manual);
+      } catch (e) {
+        isYaml = false;
+      }
+      try {
+        this._ensureToolbarButton(subpage, isYaml);
+      } catch (e) {
+        // ignore
+      }
+      if (isYaml || !manual) return;
+      try {
+        if (manual.shadowRoot) this._observeRoot(manual.shadowRoot);
+      } catch (e) {
+        // ignore
+      }
+      try {
+        this._probeThenSync();
+      } catch (e) {
+        // ignore
+      }
+    },
+
+    // One availability probe per editor id; the button shows/hides on
+    // the cached result afterwards.
+    _probeThenSync: function () {
+      const self = this;
+      let domain = null;
+      let routeId = null;
+      try {
+        domain = this._editorDomain();
+        routeId = this._editorId();
+      } catch (e) {
+        domain = null;
+        routeId = null;
+      }
+      if (!domain || !routeId || routeId === 'new') {
+        this._available = false;
+        this._syncToolbarButton();
+        return;
+      }
+      const key = domain + ':' + routeId;
+      if (this._probeKey !== key) {
+        this._probeKey = key;
+        this._available = false;
+        this._probeInFlight = false;
+        this._syncToolbarButton();
+      }
+      if (this._available || this._probeInFlight) return;
+      // Non-admins never see the button; skip supervisor traffic entirely.
+      if (!VcClient.isAdmin()) return;
+      this._probeInFlight = true;
+      VcClient.probeAvailable(domain, routeId)
+        .then(function (ok) {
+          self._probeInFlight = false;
+          try {
+            if (self._probeKey !== key) return;
+            self._available = !!ok;
+            self._syncToolbarButton();
+          } catch (e) {
+            // ignore
+          }
+        })
+        .catch(function () {
+          self._probeInFlight = false;
+        });
+    },
+
+    _ensureToolbarButton: function (subpage, isYaml) {
+      if (!subpage) return;
+      if (this._toolbarBtn && this._toolbarBtn.parentNode !== subpage) {
+        this._removeToolbarButton();
+      }
+      if (!this._toolbarBtn) {
+        const self = this;
+        const btn = document.createElement('ha-icon-button');
+        btn.id = 'ha-tweaks-button-history';
+        btn.setAttribute('slot', 'toolbar-icon');
+        btn.setAttribute('data-ha-tweaks', 'version-history');
+        btn.setAttribute('icon', 'mdi:history');
+        try {
+          btn.label = 'Version history';
+        } catch (e) {
+          // ignore
+        }
+        btn.addEventListener('click', function (ev) {
+          try {
+            ev.stopPropagation();
+          } catch (e) {
+            // ignore
+          }
+          try {
+            self.openHistory();
+          } catch (err) {
+            console.warn(LOG_TAG, 'version history open failed', err);
+          }
+        });
+
+        const tooltip = document.createElement('ha-tooltip');
+        tooltip.setAttribute('placement', 'bottom');
+        tooltip.setAttribute('for', 'ha-tweaks-button-history');
+        tooltip.setAttribute('data-ha-tweaks', 'version-history-tooltip');
+        tooltip.textContent = 'Version history';
+
+        // Insert before the Save anchor so the order stays
+        // [Collapse][History][Save].
+        const anchor =
+          subpage.querySelector('ha-button[slot="toolbar-icon"]') ||
+          subpage.querySelector('ha-dropdown[slot="toolbar-icon"]');
+        if (anchor) {
+          subpage.insertBefore(btn, anchor);
+          subpage.insertBefore(tooltip, anchor);
+        } else {
+          subpage.appendChild(btn);
+          subpage.appendChild(tooltip);
+        }
+        this._toolbarBtn = btn;
+        this._toolbarTooltip = tooltip;
+      }
+      this._syncToolbarButton(isYaml);
+    },
+
+    _syncToolbarButton: function (isYaml) {
+      if (!this._toolbarBtn) return;
+      let yaml = !!isYaml;
+      if (!isYaml) {
+        try {
+          const outer = this._getOuter();
+          const manual = this._findManualEditor(outer);
+          yaml = this._isYamlMode(outer, manual);
+        } catch (e) {
+          // ignore
+        }
+      }
+      const show = !yaml && !!this._available;
+      this._toolbarBtn.style.display = show ? '' : 'none';
+      if (this._toolbarTooltip) {
+        this._toolbarTooltip.style.display = show ? '' : 'none';
+      }
+    },
+
+    _removeToolbarButton: function () {
+      if (this._toolbarBtn && this._toolbarBtn.parentNode) {
+        try {
+          this._toolbarBtn.parentNode.removeChild(this._toolbarBtn);
+        } catch (e) {
+          // ignore
+        }
+      }
+      this._toolbarBtn = null;
+      if (this._toolbarTooltip && this._toolbarTooltip.parentNode) {
+        try {
+          this._toolbarTooltip.parentNode.removeChild(this._toolbarTooltip);
+        } catch (e) {
+          // ignore
+        }
+      }
+      this._toolbarTooltip = null;
+    },
+
+    _editorDisplayName: function (domain, routeId) {
+      const kind = domain === 'script' ? 'Script' : 'Automation';
+      try {
+        const outer = this._getOuter();
+        const alias = outer && outer.config && outer.config.alias;
+        if (typeof alias === 'string' && alias) return kind + ' \u00b7 ' + alias;
+      } catch (e) {
+        // ignore
+      }
+      return kind + ' \u00b7 ' + routeId;
+    },
+
+    // Best-effort dirty check: when the editor exposes no dirty flag at
+    // all the banner is omitted and the restore confirm strip still
+    // carries the 'Unsaved changes will be lost' copy.
+    _isEditorDirty: function () {
+      let outer = null;
+      let manual = null;
+      try {
+        outer = this._getOuter();
+      } catch (e) {
+        outer = null;
+      }
+      try {
+        manual = this._findManualEditor(outer);
+      } catch (e) {
+        manual = null;
+      }
+      const cands = [outer, manual];
+      for (let i = 0; i < cands.length; i++) {
+        const ed = cands[i];
+        if (!ed) continue;
+        try {
+          if (typeof ed.isDirty === 'function') {
+            if (ed.isDirty()) return true;
+          } else if (typeof ed.isDirty === 'boolean') {
+            if (ed.isDirty) return true;
+          } else if (typeof ed._dirty === 'boolean') {
+            if (ed._dirty) return true;
+          }
+        } catch (e) {
+          // ignore
+        }
+      }
+      return false;
+    },
+
+    openHistory: function () {
+      if (this._modalOpen) return;
+      let domain = null;
+      let routeId = null;
+      try {
+        domain = this._editorDomain();
+        routeId = this._editorId();
+      } catch (e) {
+        domain = null;
+        routeId = null;
+      }
+      if (!domain || !routeId || routeId === 'new') return;
+      const self = this;
+      this._modalOpen = true;
+      this._commits = [];
+      this._rendered = 0;
+      this._filter = '';
+      try {
+        this._lastFocused = document.activeElement;
+      } catch (e) {
+        this._lastFocused = null;
+      }
+
+      const backdrop = document.createElement('div');
+      backdrop.setAttribute('data-ha-tweaks', 'version-history-backdrop');
+      backdrop.style.cssText =
+        'position:fixed;inset:0;z-index:999998;' +
+        'background:transparent;' +
+        'backdrop-filter:var(--ha-dialog-scrim-backdrop-filter,brightness(68%));' +
+        '-webkit-backdrop-filter:var(--ha-dialog-scrim-backdrop-filter,brightness(68%));' +
+        'margin:0;padding:0;border:0;';
+      backdrop.addEventListener('click', function () {
+        self._closeModal();
+      });
+      document.body.appendChild(backdrop);
+      this._backdropEl = backdrop;
+
+      const dialog = document.createElement('div');
+      dialog.setAttribute('data-ha-tweaks', 'version-history-dialog');
+      dialog.setAttribute('role', 'dialog');
+      dialog.setAttribute('aria-modal', 'true');
+      dialog.setAttribute('aria-label', 'Version history');
+      dialog.setAttribute('tabindex', '-1');
+      dialog.style.cssText = [
+        'position:fixed',
+        'z-index:999999',
+        'left:50%',
+        'top:max(40px,env(safe-area-inset-top,0px))',
+        'transform:translateX(-50%)',
+        'width:min(580px,95vw)',
+        'height:auto',
+        'min-height:min(360px,calc(100dvh - 48px))',
+        'max-height:calc(100dvh - 48px)',
+        'display:flex',
+        'flex-direction:column',
+        'padding:0',
+        'margin:0',
+        'background:var(--card-background-color,#ffffff)',
+        'color:var(--primary-text-color,#212121)',
+        'border:0',
+        'border-radius:var(--ha-border-radius-3xl,24px)',
+        'box-shadow:var(--wa-shadow-l,0 12px 40px rgba(0,0,0,0.35))',
+        'font-family:inherit',
+        'overflow:hidden',
+        'outline:none',
+      ].join(';');
+
+      const head = document.createElement('div');
+      head.style.cssText = 'padding:20px 16px 4px 16px;flex:0 0 auto;';
+      const title = document.createElement('div');
+      title.textContent = 'Version history';
+      title.style.cssText =
+        'font-size:16px;font-weight:500;' +
+        'color:var(--primary-text-color,#212121);';
+      const sub = document.createElement('div');
+      sub.textContent = this._editorDisplayName(domain, routeId);
+      sub.style.cssText =
+        'margin-top:2px;font-size:12px;' +
+        'color:var(--secondary-text-color,#727272);' +
+        'overflow:hidden;text-overflow:ellipsis;white-space:nowrap;';
+      head.appendChild(title);
+      head.appendChild(sub);
+      dialog.appendChild(head);
+
+      let dirty = false;
+      try {
+        dirty = this._isEditorDirty();
+      } catch (e) {
+        dirty = false;
+      }
+      if (dirty) {
+        const banner = document.createElement('div');
+        banner.setAttribute('data-ha-tweaks', 'version-history-dirty');
+        banner.textContent =
+          'You have unsaved changes. Restoring a version will discard them.';
+        banner.style.cssText =
+          'margin:12px 16px 0 16px;padding:8px 12px;border-radius:8px;' +
+          'font-size:12px;color:var(--warning-color,#ff9800);' +
+          'background:rgba(255,152,0,0.12);';
+        dialog.appendChild(banner);
+      }
+
+      const searchWrap = document.createElement('div');
+      searchWrap.setAttribute('data-ha-tweaks', 'version-history-search-wrap');
+      searchWrap.style.cssText =
+        'display:none;padding:12px 16px 0 16px;flex:0 0 auto;';
+      const search = document.createElement('input');
+      search.type = 'text';
+      search.setAttribute('data-ha-tweaks', 'version-history-search');
+      search.setAttribute('aria-label', 'Search versions');
+      search.placeholder = 'Search versions';
+      search.autocomplete = 'off';
+      search.spellcheck = false;
+      search.style.cssText = [
+        'width:100%',
+        'height:40px',
+        'padding:0 12px',
+        'border:1px solid var(--ha-color-border-neutral-quiet,var(--divider-color,#e0e0e0))',
+        'border-radius:var(--ha-border-radius-md,8px)',
+        'background:var(--card-background-color,#ffffff)',
+        'color:var(--primary-text-color,#212121)',
+        'font-family:inherit',
+        'font-size:14px',
+        'outline:none',
+      ].join(';');
+      search.addEventListener('input', function (ev) {
+        try {
+          self._filter = String((ev.target && ev.target.value) || '');
+          self._repaintList(domain, routeId);
+        } catch (e) {
+          // keep typing usable even if rendering fails once
+        }
+      });
+      searchWrap.appendChild(search);
+      dialog.appendChild(searchWrap);
+      this._searchWrapEl = searchWrap;
+      this._searchEl = search;
+
+      const list = document.createElement('div');
+      list.setAttribute('data-ha-tweaks', 'version-history-list');
+      list.style.cssText =
+        'flex:1 1 auto;overflow-y:auto;padding:8px 0 12px 0;min-height:120px;';
+      dialog.appendChild(list);
+      this._listEl = list;
+
+      document.body.appendChild(dialog);
+      this._dialogEl = dialog;
+
+      this._onKeyDown = function (ev) {
+        try {
+          if (ev && (ev.key === 'Escape' || ev.key === 'Esc')) {
+            ev.stopPropagation();
+            self._closeModal();
+          }
+        } catch (e) {
+          // ignore
+        }
+      };
+      window.addEventListener('keydown', this._onKeyDown, { capture: true });
+
+      this._renderSkeleton();
+      try {
+        dialog.focus({ preventScroll: true });
+      } catch (e) {
+        try {
+          dialog.focus();
+        } catch (ignore) {
+          // Focus is best-effort; the modal stays pointer-usable.
+        }
+      }
+      this._fetchHistory(domain, routeId);
+    },
+
+    _closeModal: function () {
+      if (this._onKeyDown) {
+        try {
+          window.removeEventListener('keydown', this._onKeyDown, {
+            capture: true,
+          });
+        } catch (e) {
+          // ignore
+        }
+        this._onKeyDown = null;
+      }
+      if (this._moreObserver) {
+        try {
+          this._moreObserver.disconnect();
+        } catch (e) {
+          // ignore
+        }
+        this._moreObserver = null;
+      }
+      this._sentinel = null;
+      if (this._dialogEl && this._dialogEl.parentNode) {
+        try {
+          this._dialogEl.parentNode.removeChild(this._dialogEl);
+        } catch (e) {
+          // ignore
+        }
+      }
+      this._dialogEl = null;
+      this._listEl = null;
+      this._searchEl = null;
+      this._searchWrapEl = null;
+      if (this._backdropEl && this._backdropEl.parentNode) {
+        try {
+          this._backdropEl.parentNode.removeChild(this._backdropEl);
+        } catch (e) {
+          // ignore
+        }
+      }
+      this._backdropEl = null;
+      this._commits = [];
+      this._rendered = 0;
+      this._filter = '';
+      this._modalOpen = false;
+      const last = this._lastFocused;
+      this._lastFocused = null;
+      try {
+        if (last && last.isConnected && typeof last.focus === 'function') {
+          last.focus({ preventScroll: true });
+        }
+      } catch (e) {
+        try {
+          if (last && typeof last.focus === 'function') last.focus();
+        } catch (ignore) {
+          // ignore
+        }
+      }
+    },
+
+    _clearList: function () {
+      this._clearSentinel();
+      if (!this._listEl) return;
+      while (this._listEl.firstChild) {
+        try {
+          this._listEl.removeChild(this._listEl.firstChild);
+        } catch (e) {
+          break;
+        }
+      }
+      this._rendered = 0;
+    },
+
+    _clearSentinel: function () {
+      if (this._moreObserver) {
+        try {
+          this._moreObserver.disconnect();
+        } catch (e) {
+          // ignore
+        }
+        this._moreObserver = null;
+      }
+      if (this._sentinel && this._sentinel.parentNode) {
+        try {
+          this._sentinel.parentNode.removeChild(this._sentinel);
+        } catch (e) {
+          // ignore
+        }
+      }
+      this._sentinel = null;
+    },
+
+    // Single skeleton row while the one history-metadata payload loads.
+    _renderSkeleton: function () {
+      if (!this._listEl) return;
+      this._clearList();
+      const row = document.createElement('div');
+      row.setAttribute('data-ha-tweaks', 'version-history-loading');
+      row.style.cssText =
+        'display:flex;align-items:center;gap:16px;width:100%;' +
+        'padding:12px 16px;';
+      const text = document.createElement('div');
+      text.style.cssText = 'flex:1 1 auto;min-width:0;';
+      const headline = document.createElement('div');
+      headline.textContent = 'Loading history\u2026';
+      headline.style.cssText =
+        'font-size:14px;color:var(--primary-text-color,#212121);';
+      const supporting = document.createElement('div');
+      supporting.textContent = 'Fetching commits from Version Control\u2026';
+      supporting.style.cssText =
+        'margin-top:2px;font-size:12px;' +
+        'color:var(--secondary-text-color,#727272);';
+      text.appendChild(headline);
+      text.appendChild(supporting);
+      row.appendChild(text);
+      this._listEl.appendChild(row);
+    },
+
+    _renderEmpty: function () {
+      if (!this._listEl) return;
+      this._clearList();
+      if (this._searchWrapEl) this._searchWrapEl.style.display = 'none';
+      const row = document.createElement('div');
+      row.setAttribute('data-ha-tweaks', 'version-history-empty');
+      row.style.cssText =
+        'display:flex;align-items:center;gap:16px;width:100%;' +
+        'padding:20px 16px;color:var(--secondary-text-color,#727272);';
+      const text = document.createElement('div');
+      text.style.cssText = 'min-width:0;';
+      const headline = document.createElement('div');
+      headline.textContent = 'No commits yet';
+      headline.style.cssText =
+        'font-size:14px;color:var(--primary-text-color,#212121);';
+      const supporting = document.createElement('div');
+      supporting.textContent =
+        'Edits to this item will appear here once they are saved.';
+      supporting.style.cssText = 'margin-top:2px;font-size:12px;color:inherit;';
+      text.appendChild(headline);
+      text.appendChild(supporting);
+      row.appendChild(text);
+      this._listEl.appendChild(row);
+    },
+
+    _renderError: function (message, domain, routeId, showRetry) {
+      const self = this;
+      if (!this._listEl) return;
+      this._clearList();
+      if (this._searchWrapEl) this._searchWrapEl.style.display = 'none';
+      const row = document.createElement('div');
+      row.setAttribute('data-ha-tweaks', 'version-history-error');
+      row.style.cssText =
+        'display:flex;align-items:center;gap:16px;width:100%;' +
+        'padding:20px 16px;';
+      const text = document.createElement('div');
+      text.style.cssText = 'flex:1 1 auto;min-width:0;';
+      const headline = document.createElement('div');
+      headline.textContent = message || "Couldn't load history";
+      headline.style.cssText =
+        'font-size:14px;color:var(--primary-text-color,#212121);';
+      text.appendChild(headline);
+      row.appendChild(text);
+      if (showRetry !== false) {
+        const retry = document.createElement('button');
+        retry.type = 'button';
+        retry.textContent = 'Retry';
+        retry.setAttribute('data-ha-tweaks', 'version-history-retry');
+        retry.style.cssText =
+          'flex:0 0 auto;border:0;background:transparent;cursor:pointer;' +
+          'font-family:inherit;font-size:13px;font-weight:500;' +
+          'color:var(--primary-color,#03a9f4);padding:8px;';
+        retry.addEventListener('click', function () {
+          try {
+            self._renderSkeleton();
+            self._fetchHistory(domain, routeId);
+          } catch (e) {
+            // ignore
+          }
+        });
+        row.appendChild(retry);
+      }
+      this._listEl.appendChild(row);
+    },
+
+    _fetchHistory: function (domain, routeId) {
+      const self = this;
+      const kind = VcClient.kindFor(domain);
+      const vcId = VcClient.vcIdFor(domain, routeId);
+      const path = '/api/' + kind + '/' + encodeURIComponent(vcId) + '/history-metadata';
+      VcClient.vcFetch(path, { method: 'GET' })
+        .then(function (res) {
+          if (!self._modalOpen) return null;
+          if (!res) throw new Error('empty response');
+          if (!res.ok) throw new Error('http ' + res.status);
+          return res.json();
+        })
+        .then(function (json) {
+          if (!self._modalOpen || json === null) return;
+          const commits = (json && json.commits) || [];
+          if (!json || json.success === false || !commits.length) {
+            if (json && json.success === false && json.error) {
+              self._renderError(String(json.error), domain, routeId, true);
+            } else {
+              self._renderEmpty();
+            }
+            return;
+          }
+          self._commits = commits;
+          self._repaintList(domain, routeId);
+          // Hand focus to search once it appears and the user has not
+          // moved focus elsewhere meanwhile.
+          try {
+            if (
+              self._commits.length > 8 &&
+              self._searchEl &&
+              self._dialogEl &&
+              (document.activeElement === self._dialogEl ||
+                document.activeElement === document.body)
+            ) {
+              self._searchEl.focus({ preventScroll: true });
+            }
+          } catch (e) {
+            // ignore
+          }
+        })
+        .catch(function (err) {
+          if (!self._modalOpen) return;
+          let msg = "Couldn't load history";
+          try {
+            if (err && err.message) {
+              if (err.message.indexOf('version control addon') >= 0) {
+                self._renderError('Version Control unavailable', domain, routeId, true);
+                return;
+              }
+              msg = msg + ': ' + err.message;
+            }
+          } catch (e) {
+            // ignore
+          }
+          self._renderError(msg, domain, routeId, true);
+        });
+    },
+
+    _filteredCommits: function () {
+      const q = String(this._filter || '')
+        .trim()
+        .toLowerCase();
+      if (!q) return this._commits;
+      return this._commits.filter(function (c) {
+        const hay = [c && c.message, c && c.author, c && c.hash]
+          .join(' ')
+          .toLowerCase();
+        return hay.indexOf(q) >= 0;
+      });
+    },
+
+    _repaintList: function (domain, routeId) {
+      if (!this._listEl) return;
+      this._clearList();
+      if (this._searchWrapEl) {
+        this._searchWrapEl.style.display =
+          this._commits.length > 8 ? '' : 'none';
+      }
+      const filtered = this._filteredCommits();
+      if (!filtered.length) {
+        if (String(this._filter || '').trim()) {
+          this._renderError('No versions match this search.', domain, routeId, false);
+        } else {
+          this._renderEmpty();
+        }
+        return;
+      }
+      let canRestore = false;
+      try {
+        canRestore = !this._isShowRoute() && VcClient.isAdmin();
+      } catch (e) {
+        canRestore = false;
+      }
+      this._appendRows(domain, routeId, canRestore, filtered);
+      this._setupSentinel(domain, routeId, canRestore, filtered);
+    },
+
+    _formatWhen: function (commit) {
+      try {
+        const raw = commit && commit.date;
+        if (!raw) return '';
+        const d = new Date(raw);
+        if (isNaN(d.getTime())) return String(raw);
+        return d.toLocaleString();
+      } catch (e) {
+        try {
+          return String((commit && commit.date) || '');
+        } catch (ignore) {
+          return '';
+        }
+      }
+    },
+
+    _makeCommitRow: function (commit, domain, routeId, canRestore) {
+      const self = this;
+      const row = document.createElement('div');
+      row.setAttribute('data-ha-tweaks', 'version-history-row');
+      row.style.cssText =
+        'display:flex;align-items:center;gap:16px;width:100%;' +
+        'padding:12px 16px;';
+
+      const text = document.createElement('div');
+      text.style.cssText = 'flex:1 1 auto;min-width:0;';
+      const headline = document.createElement('div');
+      let message = 'No message';
+      try {
+        const raw = commit && commit.message ? String(commit.message) : '';
+        message = (raw.split('\n')[0] || 'No message').trim() || 'No message';
+      } catch (e) {
+        message = 'No message';
+      }
+      headline.textContent = message;
+      headline.style.cssText =
+        'font-size:14px;line-height:1.35;' +
+        'color:var(--primary-text-color,#212121);' +
+        'overflow:hidden;text-overflow:ellipsis;white-space:nowrap;';
+      headline.title = message;
+      const supporting = document.createElement('div');
+      let shortHash = '';
+      try {
+        shortHash = commit && commit.hash ? String(commit.hash).slice(0, 7) : '';
+      } catch (e) {
+        shortHash = '';
+      }
+      const author =
+        commit && commit.author ? String(commit.author) : 'Unknown';
+      const when = this._formatWhen(commit);
+      supporting.textContent = [when, author, shortHash]
+        .filter(Boolean)
+        .join(' \u00b7 ');
+      supporting.style.cssText =
+        'margin-top:2px;font-size:12px;' +
+        'color:var(--secondary-text-color,#727272);' +
+        'overflow:hidden;text-overflow:ellipsis;white-space:nowrap;';
+      text.appendChild(headline);
+      text.appendChild(supporting);
+      row.appendChild(text);
+
+      if (canRestore) {
+        const actions = document.createElement('div');
+        actions.setAttribute('data-ha-tweaks', 'version-history-actions');
+        actions.style.cssText = 'flex:0 0 auto;';
+        row.appendChild(actions);
+        this._paintRestoreButton(actions, row, commit, domain, routeId);
+      }
+      return row;
+    },
+
+    _paintRestoreButton: function (actions, row, commit, domain, routeId) {
+      const self = this;
+      while (actions.firstChild) {
+        try {
+          actions.removeChild(actions.firstChild);
+        } catch (e) {
+          break;
+        }
+      }
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.textContent = 'Restore';
+      btn.setAttribute('data-ha-tweaks', 'version-history-restore');
+      try {
+        const short =
+          commit && commit.hash ? String(commit.hash).slice(0, 7) : '';
+        if (short) btn.setAttribute('aria-label', 'Restore version ' + short);
+      } catch (e) {
+        // ignore
+      }
+      btn.style.cssText =
+        'border:0;background:transparent;cursor:pointer;' +
+        'font-family:inherit;font-size:13px;font-weight:500;' +
+        'color:var(--primary-color,#03a9f4);padding:8px;';
+      btn.addEventListener('click', function () {
+        try {
+          self._paintRestoreConfirm(actions, row, commit, domain, routeId);
+        } catch (e) {
+          // ignore
+        }
+      });
+      actions.appendChild(btn);
+    },
+
+    _paintRestoreConfirm: function (actions, row, commit, domain, routeId) {
+      const self = this;
+      while (actions.firstChild) {
+        try {
+          actions.removeChild(actions.firstChild);
+        } catch (e) {
+          break;
+        }
+      }
+      const strip = document.createElement('div');
+      strip.setAttribute('data-ha-tweaks', 'version-history-confirm');
+      strip.style.cssText = 'display:flex;align-items:center;gap:4px;';
+      const copy = document.createElement('span');
+      copy.textContent = 'Unsaved changes will be lost.';
+      copy.style.cssText =
+        'font-size:12px;color:var(--secondary-text-color,#727272);' +
+        'margin-right:4px;white-space:nowrap;';
+      const cancel = document.createElement('button');
+      cancel.type = 'button';
+      cancel.textContent = 'Cancel';
+      cancel.style.cssText =
+        'border:0;background:transparent;cursor:pointer;' +
+        'font-family:inherit;font-size:13px;font-weight:500;' +
+        'color:var(--secondary-text-color,#727272);padding:8px;';
+      cancel.addEventListener('click', function () {
+        try {
+          self._paintRestoreButton(actions, row, commit, domain, routeId);
+        } catch (e) {
+          // ignore
+        }
+      });
+      const confirm = document.createElement('button');
+      confirm.type = 'button';
+      confirm.textContent = 'Restore version';
+      confirm.setAttribute('data-ha-tweaks', 'version-history-confirm-go');
+      confirm.style.cssText =
+        'border:0;background:transparent;cursor:pointer;' +
+        'font-family:inherit;font-size:13px;font-weight:500;' +
+        'color:var(--error-color,#db4437);padding:8px;';
+      confirm.addEventListener('click', function () {
+        try {
+          confirm.disabled = true;
+          cancel.disabled = true;
+          confirm.textContent = 'Restoring\u2026';
+          self._doRestore(actions, row, commit, domain, routeId);
+        } catch (e) {
+          // ignore
+        }
+      });
+      strip.appendChild(copy);
+      strip.appendChild(cancel);
+      strip.appendChild(confirm);
+      actions.appendChild(strip);
+    },
+
+    _doRestore: function (actions, row, commit, domain, routeId) {
+      const self = this;
+      const kind = VcClient.kindFor(domain);
+      const vcId = VcClient.vcIdFor(domain, routeId);
+      const path =
+        '/api/' + kind + '/' + encodeURIComponent(vcId) + '/restore';
+      VcClient.vcFetch(path, {
+        method: 'POST',
+        body: { commitHash: commit && commit.hash },
+      })
+        .then(function (res) {
+          if (!res) throw new Error('empty response');
+          if (!res.ok) throw new Error('http ' + res.status);
+          return res.json();
+        })
+        .then(function (json) {
+          if (!json || json.success === false) {
+            throw new Error(
+              (json && (json.error || json.message)) || 'restore failed'
+            );
+          }
+          let msg = 'Version restored';
+          try {
+            if (json && json.message) msg = String(json.message);
+          } catch (e) {
+            // keep default
+          }
+          toast(msg);
+          self._closeModal();
+          self._refreshAfterRestore();
+        })
+        .catch(function (err) {
+          // Keep the modal open with an inline error + Retry.
+          try {
+            while (actions.firstChild) {
+              actions.removeChild(actions.firstChild);
+            }
+          } catch (e) {
+            // ignore
+          }
+          const wrap = document.createElement('div');
+          wrap.setAttribute('data-ha-tweaks', 'version-history-restore-error');
+          wrap.style.cssText = 'display:flex;align-items:center;gap:4px;';
+          const copy = document.createElement('span');
+          let msg = 'Restore failed';
+          try {
+            if (err && err.message) msg = 'Restore failed: ' + err.message;
+          } catch (e) {
+            // keep default
+          }
+          copy.textContent = msg;
+          copy.style.cssText =
+            'font-size:12px;color:var(--error-color,#db4437);' +
+            'margin-right:4px;white-space:nowrap;';
+          const retry = document.createElement('button');
+          retry.type = 'button';
+          retry.textContent = 'Retry';
+          retry.style.cssText =
+            'border:0;background:transparent;cursor:pointer;' +
+            'font-family:inherit;font-size:13px;font-weight:500;' +
+            'color:var(--error-color,#db4437);padding:8px;';
+          retry.addEventListener('click', function () {
+            try {
+              self._paintRestoreConfirm(actions, row, commit, domain, routeId);
+            } catch (e) {
+              // ignore
+            }
+          });
+          wrap.appendChild(copy);
+          wrap.appendChild(retry);
+          actions.appendChild(wrap);
+        });
+    },
+
+    _appendRows: function (domain, routeId, canRestore, filtered) {
+      if (!this._listEl) return;
+      const PAGE = 25;
+      const target = Math.min(
+        filtered.length,
+        this._rendered === 0 ? 50 : this._rendered + PAGE
+      );
+      // Drop the sentinel while appending so rows stay in order.
+      if (this._sentinel && this._sentinel.parentNode) {
+        try {
+          this._sentinel.parentNode.removeChild(this._sentinel);
+        } catch (e) {
+          // ignore
+        }
+        this._sentinel = null;
+      }
+      for (let i = this._rendered; i < target; i++) {
+        try {
+          this._listEl.appendChild(
+            this._makeCommitRow(filtered[i], domain, routeId, canRestore)
+          );
+        } catch (e) {
+          // one bad commit must not block the rest
+        }
+      }
+      this._rendered = target;
+    },
+
+    _setupSentinel: function (domain, routeId, canRestore, filtered) {
+      this._clearSentinel();
+      if (!this._listEl || this._rendered >= filtered.length) return;
+      if (typeof IntersectionObserver === 'undefined') {
+        // No observer support: render everything (bounded, fault-isolated).
+        this._appendRows(domain, routeId, canRestore, filtered);
+        return;
+      }
+      const self = this;
+      const sentinel = document.createElement('div');
+      sentinel.setAttribute('data-ha-tweaks', 'version-history-sentinel');
+      sentinel.style.cssText = 'height:1px;';
+      this._listEl.appendChild(sentin);
+      this._sentinel = sentinel;
+      try {
+        const obs = new IntersectionObserver(
+          function (entries) {
+            try {
+              for (let i = 0; i < entries.length; i++) {
+                if (entries[i].isIntersecting) {
+                  self._appendRows(domain, routeId, canRestore, filtered);
+                  if (self._rendered >= filtered.length) {
+                    self._clearSentinel();
+                  }
+                  break;
+                }
+              }
+            } catch (e) {
+              // ignore
+            }
+          },
+          { root: this._listEl, rootMargin: '200px' }
+        );
+        obs.observe(sentinel);
+        this._moreObserver = obs;
+      } catch (e) {
+        this._moreObserver = null;
+      }
+    },
+
+    _refreshAfterRestore: function () {
+      let done = false;
+      try {
+        const outer = this._getOuter();
+        const cands = ['loadAutomation', 'loadScript', 'refresh'];
+        for (let i = 0; i < cands.length; i++) {
+          try {
+            if (outer && typeof outer[cands[i]] === 'function') {
+              outer[cands[i]]();
+              done = true;
+              break;
+            }
+          } catch (e) {
+            // try the next candidate
+          }
+        }
+      } catch (e) {
+        // fall through to reload
+      }
+      if (!done) {
+        try {
+          window.location.reload();
+        } catch (e) {
+          // ignore
+        }
+      }
+    },
+  };
+
   /* ---------- boot ---------- */
   TweakRegistry.register(AutomationContextMenuTweak);
   TweakRegistry.register(EditorRowContextMenuTweak);
@@ -7616,6 +9005,7 @@
   TweakRegistry.register(RightClickHoldTweak);
   TweakRegistry.register(ChipActiveForTweak);
   TweakRegistry.register(SidebarDragTweak);
+  TweakRegistry.register(EditorVersionHistoryTweak);
 
   window.addEventListener('location-changed', handleRouteChange);
   window.addEventListener('popstate', handleRouteChange);

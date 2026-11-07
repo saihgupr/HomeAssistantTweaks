@@ -5,6 +5,11 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.17.0] - 2026-11-07
+
+### Added
+- Added opt-in `Version history in editors` tweak (off by default, admins only). When the Version Control addon is installed, the native automation/script editor gains a history toolbar button showing the version list (message, date, author, short hash) with search, progressive loading, and one-click restore guarded by an unsaved-changes confirm step.
+
 ## [1.16.3] - 2026-11-06
 
 ### Changed
