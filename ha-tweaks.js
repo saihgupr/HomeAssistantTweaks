@@ -17,7 +17,7 @@
  */
 
 (() => {
-  const HA_TWEAKS_VERSION = '1.18.14';
+  const HA_TWEAKS_VERSION = '1.18.15';
   const CONFIG_KEY = 'ha_tweaks_config';
   // Pre-1.9.0 keys: read once as fallback so existing users keep their toggles.
   const LEGACY_CONFIG_KEY = 'ha_mods_config';
@@ -8787,21 +8787,26 @@
         }
       } catch (e) {}
 
-      // 5. If in YAML mode, update yaml editor
+      // 5. If in YAML mode, update yaml editor. ha-yaml-editor only redraws
+      // from setValue(); assigning .value does not update the visible code.
       try {
         const yamlEditor = querySelectorDeep(
           'ha-yaml-editor',
           outer.shadowRoot || outer
         );
         if (yamlEditor) {
-          yamlEditor.value = newConfig;
-          yamlEditor.dispatchEvent(
-            new CustomEvent('value-changed', {
-              detail: { value: newConfig },
-              bubbles: true,
-              composed: true,
-            })
-          );
+          if (typeof yamlEditor.setValue === 'function') {
+            yamlEditor.setValue(newConfig);
+          } else {
+            yamlEditor.value = newConfig;
+            yamlEditor.dispatchEvent(
+              new CustomEvent('value-changed', {
+                detail: { value: newConfig },
+                bubbles: true,
+                composed: true,
+              })
+            );
+          }
         }
       } catch (e) {}
 
@@ -8865,14 +8870,18 @@
               outer.shadowRoot || outer
             );
             if (yamlEditor) {
-              yamlEditor.value = original;
-              yamlEditor.dispatchEvent(
-                new CustomEvent('value-changed', {
-                  detail: { value: original },
-                  bubbles: true,
-                  composed: true,
-                })
-              );
+              if (typeof yamlEditor.setValue === 'function') {
+                yamlEditor.setValue(original);
+              } else {
+                yamlEditor.value = original;
+                yamlEditor.dispatchEvent(
+                  new CustomEvent('value-changed', {
+                    detail: { value: original },
+                    bubbles: true,
+                    composed: true,
+                  })
+                );
+              }
             }
           } catch (e) {}
           try {
