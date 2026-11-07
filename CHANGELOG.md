@@ -5,6 +5,21 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.18.3] - 2026-11-07
+
+### Fixed
+- The editor version navigation was rendering with browser default button styling because its stylesheet was mounted in `document.head` while the bar lives inside the editor's shadow root. The styles now mount in the same shadow root as the bar, so the pill layout, arrow hit areas, and historical preview colors actually apply.
+
+## [1.18.2] - 2026-11-07
+
+### Changed
+- Bumped the build so the loader fetches the updated version navigation styling after a page reload.
+
+## [1.18.1] - 2026-11-07
+
+### Changed
+- Editor version navigation now matches the Home Assistant Editor addon's version bar: a wider rounded pill with full-height arrow targets at each edge, a fixed-width centered date label, and the addon's amber historical-preview treatment.
+
 ## [1.18.0] - 2026-11-07
 
 ### Added

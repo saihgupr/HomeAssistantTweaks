@@ -1,5 +1,5 @@
 /*
- * HA Tweaks v1.18.0 - frontend QoL tweaks for Home Assistant
+ * HA Tweaks v1.18.3 - frontend QoL tweaks for Home Assistant
  * Single-file, zero-dependency frontend plugin for Home Assistant.
  * Load via configuration.yaml:
  *   frontend:
@@ -17,7 +17,7 @@
  */
 
 (() => {
-  const HA_TWEAKS_VERSION = '1.18.0';
+  const HA_TWEAKS_VERSION = '1.18.3';
   const CONFIG_KEY = 'ha_tweaks_config';
   // Pre-1.9.0 keys: read once as fallback so existing users keep their toggles.
   const LEGACY_CONFIG_KEY = 'ha_mods_config';
@@ -7882,75 +7882,102 @@
    *   with an inline error and Retry.
    * ================================================================ */
   const VERSION_NAV_STYLE_ID = 'ha-tweaks-version-nav-style';
-  function ensureVersionNavStyles() {
-    if (typeof document === 'undefined' || !document.head) return;
-    if (document.getElementById(VERSION_NAV_STYLE_ID)) return;
-    const style = document.createElement('style');
+  function ensureVersionNavStyles(root) {
+    if (typeof document === 'undefined') return;
+    // The nav lives in the editor's shadow root, where document.head styles
+    // never apply. Mount the stylesheet in the nav's own root instead.
+    const target =
+      root && typeof root.appendChild === 'function'
+        ? root.nodeType === 9
+          ? root.head || root.documentElement
+          : root
+        : document.head || document.documentElement;
+    if (!target) return;
+    let existing = null;
+    try {
+      existing = target.querySelector
+        ? target.querySelector('#' + VERSION_NAV_STYLE_ID)
+        : null;
+    } catch (e) {
+      existing = null;
+    }
+    if (existing) return;
+    const doc = target.ownerDocument || document;
+    const style = doc.createElement('style');
     style.id = VERSION_NAV_STYLE_ID;
     style.textContent = [
       '.version-nav[data-ha-tweaks="version-nav"] {',
       '  display: inline-flex;',
       '  align-items: center;',
       '  gap: 0;',
-      '  background: var(--secondary-background-color, rgba(255, 255, 255, 0.08));',
+      '  background: var(--secondary-background-color, #242424);',
       '  border: 1px solid transparent;',
-      '  border-radius: var(--ha-border-radius-pill, 16px);',
-      '  padding: 0 2px;',
+      '  border-radius: 12px;',
+      '  padding: 0;',
       '  height: 32px;',
       '  color: var(--primary-text-color, #ffffff);',
       '  box-sizing: border-box;',
       '  user-select: none;',
       '  margin: 0 4px;',
       '  font-family: inherit;',
-      '  transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease;',
+      '  opacity: 0.9;',
+      '  transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease, opacity 0.15s ease;',
       '  vertical-align: middle;',
       '}',
       '.version-nav[data-ha-tweaks="version-nav"] .version-nav-btn {',
-      '  width: 28px;',
-      '  height: 28px;',
+      '  width: 32px;',
+      '  height: 30px;',
       '  background: transparent;',
       '  border: none;',
       '  color: inherit;',
-      '  border-radius: 50%;',
-      '  transition: background 0.15s ease, opacity 0.15s ease;',
-      '  display: inline-flex;',
+      '  border-radius: 12px;',
+      '  appearance: none;',
+      '  -webkit-appearance: none;',
+      '  font: inherit;',
+      '  transition: background 0.15s ease, color 0.15s ease, opacity 0.15s ease;',
+      '  display: flex;',
       '  align-items: center;',
       '  justify-content: center;',
       '  cursor: pointer;',
       '  padding: 0;',
       '  outline: none;',
+      '  flex: 0 0 auto;',
       '}',
       '.version-nav[data-ha-tweaks="version-nav"] .version-nav-btn:hover:not(:disabled) {',
       '  color: var(--primary-text-color, #ffffff);',
-      '  background: rgba(127, 127, 127, 0.2);',
+      '  background: var(--ha-color-fill-neutral-quiet-hover, rgba(127, 127, 127, 0.15));',
       '}',
       '.version-nav[data-ha-tweaks="version-nav"] .version-nav-btn:disabled {',
       '  opacity: 0.3;',
       '  cursor: not-allowed;',
       '}',
       '.version-nav[data-ha-tweaks="version-nav"] .version-badge {',
-      '  padding: 0 10px;',
-      '  height: 28px;',
-      '  min-width: 75px;',
+      '  padding: 0 12px;',
+      '  height: 30px;',
+      '  width: 140px;',
+      '  min-width: 100px;',
       '  background: transparent;',
       '  border: none;',
+      '  border-radius: 0;',
       '  font-size: 13px;',
       '  font-weight: 500;',
       '  color: var(--primary-text-color, #ffffff);',
-      '  display: inline-flex;',
+      '  display: flex;',
       '  align-items: center;',
       '  justify-content: center;',
       '  text-align: center;',
       '  white-space: nowrap;',
       '  cursor: pointer;',
-      '  transition: color 0.15s ease;',
+      '  transition: color 0.15s ease, opacity 0.2s ease;',
+      '  box-sizing: border-box;',
+      '  flex: 0 0 auto;',
       '}',
-      '.version-nav[data-ha-tweaks="version-nav"] .version-badge:hover {',
-      '  opacity: 0.85;',
+      '.version-nav[data-ha-tweaks="version-nav"]:not(.is-historical-mode) .version-badge {',
+      '  width: 156px;',
       '}',
       '.version-nav[data-ha-tweaks="version-nav"].is-historical-mode {',
-      '  background: rgba(251, 191, 36, 0.1);',
-      '  border: 1px solid rgba(245, 158, 11, 0.6) !important;',
+      '  background: rgba(251, 191, 36, 0.08);',
+      '  border-color: rgba(245, 158, 11, 0.6);',
       '  color: #fbbf24 !important;',
       '}',
       '.version-nav[data-ha-tweaks="version-nav"].is-historical-mode .version-nav-btn {',
@@ -7958,14 +7985,14 @@
       '}',
       '.version-nav[data-ha-tweaks="version-nav"].is-historical-mode .version-nav-btn:hover:not(:disabled) {',
       '  color: #fbbf24 !important;',
-      '  background: rgba(251, 191, 36, 0.15);',
+      '  background: rgba(251, 191, 36, 0.12);',
       '}',
       '.version-nav[data-ha-tweaks="version-nav"].is-historical-mode .version-badge {',
       '  color: #fbbf24 !important;',
-      '  font-weight: 600;',
+      '  font-weight: 500;',
       '}',
     ].join('\n');
-    document.head.appendChild(style);
+    target.appendChild(style);
   }
 
   function normalizeForComparison(obj) {
@@ -8760,7 +8787,16 @@
         this._removeVersionNav();
       }
       if (!this._versionNavEl) {
-        ensureVersionNavStyles();
+        let styleRoot = null;
+        try {
+          styleRoot =
+            typeof subpage.getRootNode === 'function'
+              ? subpage.getRootNode()
+              : null;
+        } catch (e) {
+          styleRoot = null;
+        }
+        ensureVersionNavStyles(styleRoot);
         const self = this;
         const nav = document.createElement('div');
         nav.id = 'ha-tweaks-version-nav';
