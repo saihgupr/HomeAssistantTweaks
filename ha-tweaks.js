@@ -17,7 +17,7 @@
  */
 
 (() => {
-  const HA_TWEAKS_VERSION = '1.18.13';
+  const HA_TWEAKS_VERSION = '1.18.14';
   const CONFIG_KEY = 'ha_tweaks_config';
   // Pre-1.9.0 keys: read once as fallback so existing users keep their toggles.
   const LEGACY_CONFIG_KEY = 'ha_mods_config';
@@ -8445,11 +8445,11 @@
         isYaml = false;
       }
       try {
-        this._ensureVersionNav(subpage, isYaml);
+        this._ensureVersionNav(subpage);
       } catch (e) {
         // ignore
       }
-      if (isYaml || !manual) return;
+      if (!isYaml && !manual) return;
       try {
         if (manual.shadowRoot) this._observeRoot(manual.shadowRoot);
       } catch (e) {
@@ -8931,7 +8931,7 @@
       }
     },
 
-    _ensureVersionNav: function (subpage, isYaml) {
+    _ensureVersionNav: function (subpage) {
       if (!subpage) return;
       if (this._versionNavEl && this._versionNavEl.parentNode !== subpage) {
         this._removeVersionNav();
@@ -9029,22 +9029,12 @@
         this._versionNavEl = nav;
         this._versionTooltips = tips;
       }
-      this._syncVersionNav(isYaml);
+      this._syncVersionNav();
     },
 
-    _syncVersionNav: function (isYaml) {
+    _syncVersionNav: function () {
       if (!this._versionNavEl) return;
-      let yaml = !!isYaml;
-      if (!isYaml) {
-        try {
-          const outer = this._getOuter();
-          const manual = this._findManualEditor(outer);
-          yaml = this._isYamlMode(outer, manual);
-        } catch (e) {
-          // ignore
-        }
-      }
-      const show = !yaml && !!this._available;
+      const show = !!this._available;
       this._versionNavEl.style.display = show ? 'inline-flex' : 'none';
       if (show) {
         this._updateNavUI();
