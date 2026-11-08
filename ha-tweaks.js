@@ -17,7 +17,7 @@
  */
 
 (() => {
-  const HA_TWEAKS_VERSION = '1.18.16';
+  const HA_TWEAKS_VERSION = '1.18.17';
   const CONFIG_KEY = 'ha_tweaks_config';
   // Pre-1.9.0 keys: read once as fallback so existing users keep their toggles.
   const LEGACY_CONFIG_KEY = 'ha_mods_config';
@@ -8742,8 +8742,28 @@
       const self = this;
       const token = ++this._expansionRestoreId;
       let attempts = 0;
+      let observer = null;
+      let timer = null;
+      let scheduled = false;
+      const cleanup = function () {
+        if (observer) {
+          try {
+            observer.disconnect();
+          } catch (e) {
+            // ignore
+          }
+          observer = null;
+        }
+        if (timer) {
+          clearTimeout(timer);
+          timer = null;
+        }
+      };
       const attempt = function () {
-        if (token !== self._expansionRestoreId) return;
+        if (token !== self._expansionRestoreId) {
+          cleanup();
+          return;
+        }
         try {
           EditorRowContextMenuTweak._restoreCollapseStates(
             snapshot.states || [],
@@ -8764,12 +8784,54 @@
         } catch (e) {
           // ignore
         }
-        attempts++;
-        if (attempts < 10) {
-          setTimeout(attempt, 100);
+      };
+      // Coalesce render mutations into one microtask restore, before paint.
+      const schedule = function () {
+        if (token !== self._expansionRestoreId) {
+          cleanup();
+          return;
+        }
+        if (scheduled) return;
+        scheduled = true;
+        const run = function () {
+          scheduled = false;
+          attempt();
+        };
+        if (typeof queueMicrotask === 'function') {
+          queueMicrotask(run);
+        } else {
+          Promise.resolve().then(run);
         }
       };
       attempt();
+      try {
+        const manual = self._findManualEditor(self._getOuter());
+        const root = manual && manual.shadowRoot;
+        if (root && typeof MutationObserver !== 'undefined') {
+          observer = new MutationObserver(schedule);
+          observer.observe(root, { childList: true, subtree: true });
+        }
+        if (manual && manual.updateComplete && typeof manual.updateComplete.then === 'function') {
+          manual.updateComplete.then(schedule).catch(function () {});
+        }
+      } catch (e) {
+        // ignore
+      }
+      const tick = function () {
+        if (token !== self._expansionRestoreId) {
+          cleanup();
+          return;
+        }
+        attempt();
+        attempts++;
+        if (attempts < 10) {
+          timer = setTimeout(tick, 100);
+        } else {
+          cleanup();
+        }
+      };
+      timer = setTimeout(tick, 100);
+      setTimeout(cleanup, 1600);
     },
 
     _applyContent: function (content) {
