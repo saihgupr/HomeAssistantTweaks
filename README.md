@@ -48,7 +48,7 @@ Home Assistant Tweaks is a lightweight, native-feeling collection of quality-of-
 
 ### Option A — HACS (Recommended)
 
-1. Click the HACS badge above, or navigate to **HACS → ⋮ → Custom repositories**, add `https://github.com/saihgupr/HomeAssistantTweaks` with category **Plugin**, and download **Home Assistant Tweaks**.
+1. Click the badge above, or open **Settings → Marketplace → Add from link** on Home Assistant 2026.11 and paste `https://github.com/saihgupr/HomeAssistantTweaks`. On older versions, use **HACS → Custom repositories** with category **Plugin**. Then install **Home Assistant Tweaks**.
 2. Add the global module URL to `configuration.yaml` (a Lovelace dashboard resource alone does not run on `/config` pages, so this line is required):
    ```yaml
    frontend:
