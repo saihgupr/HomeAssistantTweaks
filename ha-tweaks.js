@@ -17,7 +17,7 @@
  */
 
 (() => {
-  const HA_TWEAKS_VERSION = '1.18.17';
+  const HA_TWEAKS_VERSION = '1.18.18';
   const CONFIG_KEY = 'ha_tweaks_config';
   // Pre-1.9.0 keys: read once as fallback so existing users keep their toggles.
   const LEGACY_CONFIG_KEY = 'ha_mods_config';
@@ -1168,7 +1168,7 @@
       const sep = document.createElement('div');
       sep.setAttribute('data-ha-tweaks', 'menu-separator');
       sep.style.cssText =
-        'height:1px;width:90%;margin:4px auto;padding:0;border:0;background:var(--divider-color,#e0e0e0);';
+        'height:1px;width:100%;margin:4px 0;padding:0;border:0;background:var(--divider-color,#e0e0e0);';
       return sep;
     },
 
@@ -1395,13 +1395,13 @@
         'z-index:999999',
         'min-width:230px',
         'max-width:300px',
-        'padding:4px 0',
+        'padding:8px',
         'margin:0',
         'background:var(--card-background-color,#ffffff)',
         'color:var(--primary-text-color,#212121)',
         'border:1px solid var(--divider-color,#e0e0e0)',
-        'border-radius:var(--ha-card-border-radius,8px)',
-        'box-shadow:0 8px 28px rgba(0,0,0,0.28)',
+        'border-radius:12px',
+        'box-shadow:var(--ha-box-shadow-l,0 8px 28px rgba(0,0,0,0.28))',
         'font-family:inherit',
         'font-size:14px',
         'line-height:1.4',
@@ -1435,26 +1435,28 @@
         btn.setAttribute('tabindex', '-1');
         btn.type = 'button';
         btn.disabled = !enabled;
-        btn.title = label;
         btn.style.cssText = [
           'display:flex',
           'align-items:center',
-          'gap:12px',
+          'gap:16px',
           'width:100%',
+          'box-sizing:border-box',
+          'min-height:40px',
           'text-align:left',
-          'padding:10px 16px',
+          'padding:8px 12px',
           'margin:0',
           'border:0',
+          'border-radius:8px',
           'background:transparent',
           'color:' + (enabled ? color : 'var(--disabled-text-color,#9e9e9e)'),
-          'font-size:14px',
+          'font-size:16px',
           'font-family:inherit',
           'cursor:' + (enabled ? 'pointer' : 'default'),
           'opacity:' + (enabled ? '1' : '0.6'),
         ].join(';');
         const icon = document.createElement('ha-icon');
         icon.setAttribute('icon', iconName);
-        icon.style.cssText = 'flex:0 0 auto;color:inherit;--mdc-icon-size:20px;';
+        icon.style.cssText = 'flex:0 0 auto;color:inherit;--mdc-icon-size:24px;';
         const span = document.createElement('span');
         span.textContent = label;
         span.style.cssText =
@@ -1463,7 +1465,8 @@
         btn.appendChild(span);
         if (enabled) {
           btn.addEventListener('mouseenter', function () {
-            btn.style.background = 'var(--secondary-background-color,#eeeeee)';
+            btn.style.background =
+              'var(--ha-color-fill-neutral-quiet-hover,var(--secondary-background-color,#eeeeee))';
           });
           btn.addEventListener('mouseleave', function () {
             btn.style.background = 'transparent';
@@ -3695,7 +3698,7 @@
       const sep = document.createElement('div');
       sep.setAttribute('data-ha-tweaks', 'menu-separator');
       sep.style.cssText =
-        'height:1px;width:90%;margin:4px auto;padding:0;border:0;background:var(--divider-color,#e0e0e0);';
+        'height:1px;width:100%;margin:4px 0;padding:0;border:0;background:var(--divider-color,#e0e0e0);';
       return sep;
     },
 
@@ -3768,13 +3771,13 @@
         'z-index:999999',
         'min-width:230px',
         'max-width:300px',
-        'padding:4px 0',
+        'padding:8px',
         'margin:0',
         'background:var(--card-background-color,#ffffff)',
         'color:var(--primary-text-color,#212121)',
         'border:1px solid var(--divider-color,#e0e0e0)',
-        'border-radius:var(--ha-card-border-radius,8px)',
-        'box-shadow:0 8px 28px rgba(0,0,0,0.28)',
+        'border-radius:12px',
+        'box-shadow:var(--ha-box-shadow-l,0 8px 28px rgba(0,0,0,0.28))',
         'font-family:inherit',
         'font-size:14px',
         'line-height:1.4',
@@ -3796,26 +3799,28 @@
         // Pointer-only menu: not reachable from the keyboard tab order.
         btn.setAttribute('tabindex', '-1');
         btn.type = 'button';
-        btn.title = hint ? label + ' (' + hint + ')' : label;
         btn.style.cssText = [
           'display:flex',
           'align-items:center',
-          'gap:12px',
+          'gap:16px',
           'width:100%',
+          'box-sizing:border-box',
+          'min-height:40px',
           'text-align:left',
-          'padding:10px 16px',
+          'padding:8px 12px',
           'margin:0',
           'border:0',
+          'border-radius:8px',
           'background:transparent',
           'color:' + color,
-          'font-size:14px',
+          'font-size:16px',
           'font-family:inherit',
           'cursor:pointer',
           'opacity:1',
         ].join(';');
         const icon = document.createElement('ha-icon');
         icon.setAttribute('icon', iconName);
-        icon.style.cssText = 'flex:0 0 auto;color:inherit;--mdc-icon-size:20px;';
+        icon.style.cssText = 'flex:0 0 auto;color:inherit;--mdc-icon-size:24px;';
         const span = document.createElement('span');
         span.textContent = label;
         span.style.cssText =
@@ -3830,7 +3835,8 @@
           btn.appendChild(k);
         }
         btn.addEventListener('mouseenter', function () {
-          btn.style.background = 'var(--secondary-background-color,#eeeeee)';
+          btn.style.background =
+            'var(--ha-color-fill-neutral-quiet-hover,var(--secondary-background-color,#eeeeee))';
         });
         btn.addEventListener('mouseleave', function () {
           btn.style.background = 'transparent';
@@ -4288,7 +4294,7 @@
       const sep = document.createElement('div');
       sep.setAttribute('data-ha-tweaks', 'menu-separator');
       sep.style.cssText =
-        'height:1px;width:90%;margin:4px auto;padding:0;border:0;background:var(--divider-color,#e0e0e0);';
+        'height:1px;width:100%;margin:4px 0;padding:0;border:0;background:var(--divider-color,#e0e0e0);';
       return sep;
     },
 
@@ -4297,26 +4303,28 @@
       // Pointer-only menu: not reachable from the keyboard tab order.
       btn.setAttribute('tabindex', '-1');
       btn.type = 'button';
-      btn.title = label;
       btn.style.cssText = [
         'display:flex',
         'align-items:center',
-        'gap:12px',
+        'gap:16px',
         'width:100%',
+        'box-sizing:border-box',
+        'min-height:40px',
         'text-align:left',
-        'padding:10px 16px',
+        'padding:8px 12px',
         'margin:0',
         'border:0',
+        'border-radius:8px',
         'background:transparent',
         'color:var(--primary-text-color,#212121)',
-        'font-size:14px',
+        'font-size:16px',
         'font-family:inherit',
         'cursor:pointer',
         'opacity:1',
       ].join(';');
       const icon = document.createElement('ha-icon');
       icon.setAttribute('icon', iconName);
-      icon.style.cssText = 'flex:0 0 auto;color:inherit;--mdc-icon-size:20px;';
+      icon.style.cssText = 'flex:0 0 auto;color:inherit;--mdc-icon-size:24px;';
       const span = document.createElement('span');
       span.textContent = label;
       span.style.cssText =
@@ -4324,7 +4332,8 @@
       btn.appendChild(icon);
       btn.appendChild(span);
       btn.addEventListener('mouseenter', function () {
-        btn.style.background = 'var(--secondary-background-color,#eeeeee)';
+        btn.style.background =
+          'var(--ha-color-fill-neutral-quiet-hover,var(--secondary-background-color,#eeeeee))';
       });
       btn.addEventListener('mouseleave', function () {
         btn.style.background = 'transparent';
@@ -4369,13 +4378,13 @@
         'z-index:999999',
         'min-width:230px',
         'max-width:300px',
-        'padding:4px 0',
+        'padding:8px',
         'margin:0',
         'background:var(--card-background-color,#ffffff)',
         'color:var(--primary-text-color,#212121)',
         'border:1px solid var(--divider-color,#e0e0e0)',
-        'border-radius:var(--ha-card-border-radius,8px)',
-        'box-shadow:0 8px 28px rgba(0,0,0,0.28)',
+        'border-radius:12px',
+        'box-shadow:var(--ha-box-shadow-l,0 8px 28px rgba(0,0,0,0.28))',
         'font-family:inherit',
         'font-size:14px',
         'line-height:1.4',

@@ -5,6 +5,11 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.18.18] - 2026-11-07
+
+### Changed
+- Context menus now match Home Assistant's native menu styling: 8px container padding and 12px corners, full-width 40px item rows with rounded hover highlights, 24px icons, full-width separators, and no duplicate title tooltips on menu items.
+
 ## [1.18.17] - 2026-11-07
 
 ### Changed
