@@ -17,7 +17,7 @@
  */
 
 (() => {
-  const HA_TWEAKS_VERSION = '1.18.18';
+  const HA_TWEAKS_VERSION = '1.18.19';
   const CONFIG_KEY = 'ha_tweaks_config';
   // Pre-1.9.0 keys: read once as fallback so existing users keep their toggles.
   const LEGACY_CONFIG_KEY = 'ha_mods_config';
@@ -1395,12 +1395,13 @@
         'z-index:999999',
         'min-width:230px',
         'max-width:300px',
-        'padding:8px',
+        'box-sizing:border-box',
+        'padding:4px',
         'margin:0',
         'background:var(--card-background-color,#ffffff)',
         'color:var(--primary-text-color,#212121)',
-        'border:1px solid var(--divider-color,#e0e0e0)',
-        'border-radius:12px',
+        'border:1px solid var(--ha-color-border-neutral-quiet,var(--divider-color,#e0e0e0))',
+        'border-radius:8px',
         'box-shadow:var(--ha-box-shadow-l,0 8px 28px rgba(0,0,0,0.28))',
         'font-family:inherit',
         'font-size:14px',
@@ -1438,18 +1439,20 @@
         btn.style.cssText = [
           'display:flex',
           'align-items:center',
-          'gap:16px',
+          'gap:10px',
           'width:100%',
           'box-sizing:border-box',
           'min-height:40px',
+
+          'line-height:1.2',
           'text-align:left',
-          'padding:8px 12px',
+          'padding:7px 14px',
           'margin:0',
           'border:0',
-          'border-radius:8px',
+          'border-radius:4px',
           'background:transparent',
           'color:' + (enabled ? color : 'var(--disabled-text-color,#9e9e9e)'),
-          'font-size:16px',
+          'font-size:14px',
           'font-family:inherit',
           'cursor:' + (enabled ? 'pointer' : 'default'),
           'opacity:' + (enabled ? '1' : '0.6'),
@@ -1466,7 +1469,7 @@
         if (enabled) {
           btn.addEventListener('mouseenter', function () {
             btn.style.background =
-              'var(--ha-color-fill-neutral-quiet-hover,var(--secondary-background-color,#eeeeee))';
+              'var(--ha-color-fill-neutral-normal-resting,var(--secondary-background-color,#eeeeee))';
           });
           btn.addEventListener('mouseleave', function () {
             btn.style.background = 'transparent';
@@ -1679,7 +1682,7 @@
         'margin:0',
         'background:var(--card-background-color,#ffffff)',
         'color:var(--primary-text-color,#212121)',
-        'border:1px solid var(--divider-color,#e0e0e0)',
+        'border:1px solid var(--ha-color-border-neutral-quiet,var(--divider-color,#e0e0e0))',
         'border-radius:var(--ha-card-border-radius,8px)',
         'box-shadow:0 8px 28px rgba(0,0,0,0.28)',
         'font-family:inherit',
@@ -3771,12 +3774,13 @@
         'z-index:999999',
         'min-width:230px',
         'max-width:300px',
-        'padding:8px',
+        'box-sizing:border-box',
+        'padding:4px',
         'margin:0',
         'background:var(--card-background-color,#ffffff)',
         'color:var(--primary-text-color,#212121)',
-        'border:1px solid var(--divider-color,#e0e0e0)',
-        'border-radius:12px',
+        'border:1px solid var(--ha-color-border-neutral-quiet,var(--divider-color,#e0e0e0))',
+        'border-radius:8px',
         'box-shadow:var(--ha-box-shadow-l,0 8px 28px rgba(0,0,0,0.28))',
         'font-family:inherit',
         'font-size:14px',
@@ -3802,18 +3806,20 @@
         btn.style.cssText = [
           'display:flex',
           'align-items:center',
-          'gap:16px',
+          'gap:10px',
           'width:100%',
           'box-sizing:border-box',
           'min-height:40px',
+
+          'line-height:1.2',
           'text-align:left',
-          'padding:8px 12px',
+          'padding:7px 14px',
           'margin:0',
           'border:0',
-          'border-radius:8px',
+          'border-radius:4px',
           'background:transparent',
           'color:' + color,
-          'font-size:16px',
+          'font-size:14px',
           'font-family:inherit',
           'cursor:pointer',
           'opacity:1',
@@ -3831,12 +3837,12 @@
           const k = document.createElement('span');
           k.textContent = hint;
           k.style.cssText =
-            'flex:0 0 auto;margin-left:16px;font-size:12px;color:var(--secondary-text-color,#727272);';
+            'flex:0 0 auto;margin-left:28px;font-size:12px;color:var(--secondary-text-color,#727272);';
           btn.appendChild(k);
         }
         btn.addEventListener('mouseenter', function () {
           btn.style.background =
-            'var(--ha-color-fill-neutral-quiet-hover,var(--secondary-background-color,#eeeeee))';
+            'var(--ha-color-fill-neutral-normal-resting,var(--secondary-background-color,#eeeeee))';
         });
         btn.addEventListener('mouseleave', function () {
           btn.style.background = 'transparent';
@@ -4306,18 +4312,20 @@
       btn.style.cssText = [
         'display:flex',
         'align-items:center',
-        'gap:16px',
+        'gap:10px',
         'width:100%',
         'box-sizing:border-box',
         'min-height:40px',
+
+        'line-height:1.2',
         'text-align:left',
-        'padding:8px 12px',
+        'padding:7px 14px',
         'margin:0',
         'border:0',
-        'border-radius:8px',
+        'border-radius:4px',
         'background:transparent',
         'color:var(--primary-text-color,#212121)',
-        'font-size:16px',
+        'font-size:14px',
         'font-family:inherit',
         'cursor:pointer',
         'opacity:1',
@@ -4333,7 +4341,7 @@
       btn.appendChild(span);
       btn.addEventListener('mouseenter', function () {
         btn.style.background =
-          'var(--ha-color-fill-neutral-quiet-hover,var(--secondary-background-color,#eeeeee))';
+          'var(--ha-color-fill-neutral-normal-resting,var(--secondary-background-color,#eeeeee))';
       });
       btn.addEventListener('mouseleave', function () {
         btn.style.background = 'transparent';
@@ -4378,12 +4386,13 @@
         'z-index:999999',
         'min-width:230px',
         'max-width:300px',
-        'padding:8px',
+        'box-sizing:border-box',
+        'padding:4px',
         'margin:0',
         'background:var(--card-background-color,#ffffff)',
         'color:var(--primary-text-color,#212121)',
-        'border:1px solid var(--divider-color,#e0e0e0)',
-        'border-radius:12px',
+        'border:1px solid var(--ha-color-border-neutral-quiet,var(--divider-color,#e0e0e0))',
+        'border-radius:8px',
         'box-shadow:var(--ha-box-shadow-l,0 8px 28px rgba(0,0,0,0.28))',
         'font-family:inherit',
         'font-size:14px',
