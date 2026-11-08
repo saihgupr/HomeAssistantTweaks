@@ -8,17 +8,34 @@
 
 Home Assistant Tweaks is a lightweight, native-feeling collection of quality-of-life frontend tweaks for Home Assistant. Add desktop right-click context menus, a calmer automation editor, instant hold actions, and more — all configurable per user in real time with zero restarts required.
 
-<!-- DEMO MEDIA: Placeholder for screenshots and walkthrough GIFs -->
+![Home Assistant Tweaks tour: right-click menu on an automation, then the automation editor opening with all rows collapsed](assets/hero-tour.gif)
+
+*57-second tour: context menus, collapsed editor, inline rename, instant hold actions, and sidebar drag reorder. [Watch the full video](assets/ha-tweaks-tour-v1.18.19.mp4).*
 
 ---
 
 ## Highlights
 
 - **Context Menus Anywhere:** Right-click automations, scripts, editor blocks, and empty dashboard canvas for instant actions.
+
+  ![Right-click menu open on an automation row showing Edit and Delete](assets/context-menu.gif)
+
 - **Calmer Automation Editor:** Automations and scripts open collapsed by default, complete with a Collapse All / Expand All toolbar button.
+
+  ![Automation editor opening with collapsed rows, then expanding one row with the toolbar button](assets/collapse-editor.gif)
+
 - **Inline Editor Titles:** Click an automation or script name in the editor header to rename it in place. Enter or blur commits the name, Escape cancels.
+
+  ![Clicking the automation title in the editor header and renaming it inline](assets/inline-rename.gif)
+
 - **Instant Hold Actions:** Right-click cards, badges, and tiles to trigger hold actions immediately without the default 500 ms wait.
+
+  ![Right-clicking a dashboard card to trigger its hold action immediately](assets/hold-action.gif)
+
 - **Drag-to-Reorder Sidebar:** Hold and drag sidebar items into any order you like. Saves to Home Assistant's own sidebar order, so it syncs across devices and matches Edit sidebar.
+
+  ![Dragging a sidebar item to a new position](assets/sidebar-drag.gif)
+
 - **Marketplace in Sidebar:** Native `panel_custom` sidebar entry that redirects to the Marketplace, visible in the sidebar and Edit sidebar (admins only).
 - **Zero Reloads & Instant Sync:** Toggle any tweak in real time via `T`. Settings sync per HA user across desktop and the Companion App.
 - **Safe & Isolated:** Single plain ES module with no external dependencies; one tweak failing will never break the rest of the frontend.

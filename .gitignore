@@ -29,4 +29,5 @@ Thumbs.db
 deploy.sh
 TODO.md
 HANDOFF.md
+launch/
 .git-backup-*

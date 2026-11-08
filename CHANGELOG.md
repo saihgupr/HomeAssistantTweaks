@@ -10,6 +10,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 - Context menus now use Home Assistant's exact dropdown metrics: 4px menu padding, 8px menu radius, 14px item text, 7px/14px item padding, 4px item radius, native neutral hover fill, and 24px icons with native spacing.
 
+### Fixed
+- Loading the plugin twice on HACS installs (the automatically registered Lovelace resource plus the global `extra_module_url` loader) no longer registers every listener twice. The first instance wins and the duplicate exits.
+
 ## [1.18.18] - 2026-11-07
 
 ### Changed

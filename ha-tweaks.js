@@ -1,5 +1,5 @@
 /*
- * HA Tweaks v1.18.10 - frontend QoL tweaks for Home Assistant
+ * HA Tweaks v1.18.19 - frontend QoL tweaks for Home Assistant
  * Single-file, zero-dependency frontend plugin for Home Assistant.
  * Load via configuration.yaml:
  *   frontend:
@@ -17,6 +17,12 @@
  */
 
 (() => {
+  // HACS registers a Lovelace resource for the plugin file while the README
+  // also loads it globally through frontend.extra_module_url. That can import
+  // this module twice under different query strings, so the first instance
+  // wins and the duplicate exits before registering listeners.
+  if (window.HATweaks && window.HATweaks._loaded) return;
+
   const HA_TWEAKS_VERSION = '1.18.19';
   const CONFIG_KEY = 'ha_tweaks_config';
   // Pre-1.9.0 keys: read once as fallback so existing users keep their toggles.
@@ -10223,6 +10229,7 @@
       // ignore
     }
     window.HAMods = window.HATweaks;
+    window.HATweaks._loaded = true;
   } catch (e) {
     // ignore
   }
