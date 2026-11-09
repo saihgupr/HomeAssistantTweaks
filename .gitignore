@@ -28,6 +28,5 @@ Thumbs.db
 # Internal project scripts & notes
 deploy.sh
 TODO.md
-HANDOFF.md
 launch/
 .git-backup-*
