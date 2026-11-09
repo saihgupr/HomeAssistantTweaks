@@ -5976,6 +5976,8 @@
     _onMutate: null,
     _hasRuled: false,
     _applied: null,
+    _polling: false,
+    _fastTimer: null,
 
     init: function () {
       const self = this;
@@ -6018,6 +6020,21 @@
       } catch (e) {
         this._interval = null;
       }
+      // A chip that is currently hidden is waiting for a state change we
+      // cannot observe (the entity lives in a shadow root). Poll only while
+      // something is hidden so the `for:` countdown starts on time instead
+      // of waiting for the 10s backstop.
+      try {
+        this._fastTimer = setInterval(function () {
+          try {
+            if (self._polling) self.scan();
+          } catch (e) {
+            // ignore
+          }
+        }, 1000);
+      } catch (e) {
+        this._fastTimer = null;
+      }
       try {
         this.scan();
       } catch (e) {
@@ -6038,6 +6055,13 @@
         // ignore
       }
       this._interval = null;
+      try {
+        if (this._fastTimer) clearInterval(this._fastTimer);
+      } catch (e) {
+        // ignore
+      }
+      this._fastTimer = null;
+      this._polling = false;
       try {
         if (this._debounceTimer) clearTimeout(this._debounceTimer);
       } catch (e) {
@@ -6086,6 +6110,7 @@
       const nowMs = Date.now();
       let earliest = 0;
       let ruled = 0;
+      let hidden = 0;
       try {
         let hass = null;
         try {
@@ -6132,6 +6157,7 @@
             ruled++;
             const res = self._evaluateRule(rule, states, nowMs);
             const desired = res.met ? '' : 'none';
+            if (desired === 'none') hidden++;
             let prev;
             try {
               prev = self._applied ? self._applied.get(host) : undefined;
@@ -6159,6 +6185,7 @@
           }
         }
         self._hasRuled = ruled > 0;
+        self._polling = hidden > 0;
       } catch (e) {
         console.warn(LOG_TAG, 'chip-active-for scan failed', e);
       }
@@ -6395,6 +6422,7 @@
     _holdTimer: null,
     _scrollFrame: null,
     _swallowClickUntil: 0,
+    _onDragStart: null,
 
     init: function () {
       const self = this;
@@ -6444,6 +6472,20 @@
           // ignore
         }
       };
+      // Sidebar items are links, so a normal drag starts Chrome's native
+      // link drag. That fires pointerup and kills our pointer-driven drag,
+      // which is the whole feature. Cancel it while a press is in progress.
+      this._onDragStart = function (ev) {
+        try {
+          if (!self._drag) return;
+          if (ev && ev.cancelable) ev.preventDefault();
+        } catch (e) {
+          // ignore
+        }
+      };
+      window.addEventListener('dragstart', this._onDragStart, {
+        capture: true,
+      });
       window.addEventListener('pointerdown', this._onPointerDown, {
         capture: true,
         passive: true,
@@ -6469,6 +6511,10 @@
     },
 
     destroy: function () {
+      if (this._onDragStart) {
+        window.removeEventListener('dragstart', this._onDragStart, { capture: true });
+        this._onDragStart = null;
+      }
       if (this._onPointerDown) {
         window.removeEventListener('pointerdown', this._onPointerDown, { capture: true });
         this._onPointerDown = null;
@@ -6703,6 +6749,11 @@
             'z-index:999999',
             'pointer-events:none',
             'opacity:0.98',
+            // The clone does not inherit :hover, so it has no background of
+            // its own. Paint the sidebar surface or the rows underneath show
+            // through the lifted item.
+            'background:var(--sidebar-background-color,var(--card-background-color,#1c1c1c))',
+            'outline:1px solid var(--divider-color,rgba(255,255,255,.12))',
             'transform:scale(1.03)',
             'box-shadow:0 10px 28px rgba(0,0,0,0.32)',
             'border-radius:var(--ha-border-radius-sm,8px)',

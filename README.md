@@ -10,7 +10,7 @@ Home Assistant Tweaks is a lightweight, native-feeling collection of quality-of-
 
 ![Home Assistant Tweaks tour: right-click menu on an automation, then the automation editor opening with all rows collapsed](assets/hero-tour.gif)
 
-*57-second tour: context menus, collapsed editor, inline rename, instant hold actions, and sidebar drag reorder. [Watch the full video](assets/ha-tweaks-tour-v1.18.19.mp4).*
+*Full tour: version history, context menus, collapsed editor, inline rename, instant hold actions, sidebar drag reorder, and settings. [Watch the full video](assets/ha-tweaks-tour-v1.18.19.mp4).*
 
 ---
 
@@ -28,9 +28,17 @@ Home Assistant Tweaks is a lightweight, native-feeling collection of quality-of-
 
   ![Clicking the automation title in the editor header and renaming it inline](assets/inline-rename.gif)
 
+- **Version History in Editors:** Step back through earlier saves inside the editor, preview any version in the UI or as YAML, and restore it with Save. Pairs with the [Home Assistant Version Control](https://github.com/saihgupr/HomeAssistantVersionControl) addon.
+
+  ![Version history stepping back through earlier saves, previewing an old version, and restoring it with Save](assets/version-history.gif)
+
 - **Instant Hold Actions:** Right-click cards, badges, and tiles to trigger hold actions immediately without the default 500 ms wait.
 
   ![Right-clicking a dashboard card to trigger its hold action immediately](assets/hold-action.gif)
+
+- **Mushroom Chips That Wait:** Hide a Mushroom chip until its entity has held a state for a set time. Add `for:` to the chip and it stays hidden until the condition is met, no template math required.
+
+  ![Two chips on a dashboard, then a third Demo lamp chip appearing once the lamp has been on for the configured time](assets/mushroom-chips.gif)
 
 - **Drag-to-Reorder Sidebar:** Hold and drag sidebar items into any order you like. Saves to Home Assistant's own sidebar order, so it syncs across devices and matches Edit sidebar.
 

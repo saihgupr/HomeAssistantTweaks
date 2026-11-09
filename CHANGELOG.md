@@ -5,6 +5,13 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Fixed
+- Dragging a sidebar item no longer starts Chrome's native link drag, which fired `pointerup` and cancelled the reorder on desktop.
+- The dragged sidebar item is now opaque and outlined, so the rows underneath no longer show through the lifted clone.
+- Mushroom chips with a `for:` duration now appear within a second of the threshold instead of waiting for the 10-second backstop scan.
+
 ## [1.18.19] - 2026-11-07
 
 ### Changed
