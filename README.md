@@ -44,7 +44,8 @@ Home Assistant Tweaks is a lightweight, native-feeling collection of quality-of-
 
   ![Dragging a sidebar item to a new position](assets/sidebar-drag.gif)
 
-- **Marketplace in Sidebar:** Native `panel_custom` sidebar entry that redirects to the Marketplace, visible in the sidebar and Edit sidebar (admins only).
+- **Marketplace Shortcut:** Add a Marketplace row to the main sidebar from the tweaks panel (admins only). No `panel_custom` config and no restart, and it can be dragged into place or toggled off any time.
+
 - **Zero Reloads & Instant Sync:** Toggle any tweak in real time via `T`. Settings sync per HA user across desktop and the Companion App.
 - **Safe & Isolated:** Single plain ES module with no external dependencies; one tweak failing will never break the rest of the frontend.
 
@@ -87,25 +88,6 @@ Home Assistant Tweaks is a lightweight, native-feeling collection of quality-of-
 
 </details>
 
-### Marketplace Sidebar Entry (Optional)
-
-The Marketplace sidebar item is a native `panel_custom` entry (a tiny redirect module, not a tweak, so it appears in the sidebar and Edit sidebar and syncs across devices):
-
-1. Copy [`marketplace-redirect.js`](marketplace-redirect.js) to `<config>/www/marketplace-redirect.js` (`deploy.sh` does this automatically).
-2. Add to `configuration.yaml`:
-   ```yaml
-   panel_custom:
-     - name: marketplace-redirect
-       sidebar_title: Marketplace
-       sidebar_icon: mdi:store
-       url_path: marketplace-redirect
-       module_url: /local/marketplace-redirect.js
-       config:
-         target: /marketplace
-       require_admin: true
-   ```
-3. Restart Home Assistant, then hard-refresh the browser (`Cmd/Ctrl + Shift + R`).
-
 ---
 
 ## Usage
@@ -118,7 +100,7 @@ Fresh installs start with every tweak off, so you opt in to only what you want. 
 
 ### Reordering the sidebar
 
-Switch on **Drag to reorder sidebar**, then drag any main-navigation item (dashboards, the Marketplace entry, custom panels) up or down. A floating copy follows the pointer with a line showing where it will land; dragging near the top or bottom auto-scrolls the list, and `Escape` cancels.
+Switch on **Drag to reorder sidebar**, then drag any main-navigation item (dashboards, add-ons, custom panels) up or down. A floating copy follows the pointer with a line showing where it will land; dragging near the top or bottom auto-scrolls the list, and `Escape` cancels.
 
 - Mouse lifts the item as soon as you move; touch lifts after a short hold, so normal scrolling is untouched.
 - The order is saved to Home Assistant's own sidebar user data, so it syncs per user and stays in step with Edit sidebar.

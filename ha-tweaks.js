@@ -7061,6 +7061,7 @@
     'right-click-hold': 'mdi:mouse-right-click',
     'chip-active-for': 'mdi:mushroom',
     'sidebar-drag': 'mdi:drag',
+    'marketplace-sidebar': 'mdi:store',
   };
 
   const MENU_ITEM_ICONS = {
@@ -8248,6 +8249,325 @@
       return 'Past version';
     }
   }
+
+  /* ================================================================
+   * Tweak 10: Marketplace shortcut in the sidebar
+   * - Opt-in toggle. Injects one native-looking sidebar row that opens
+   *   /marketplace. It is a shortcut, not a backend panel, so it does
+   *   not appear in Edit sidebar. State syncs like every other tweak.
+   * - Re-inserts itself after HA re-renders the sidebar. Admins only.
+   * ================================================================ */
+  const MarketplaceSidebarTweak = {
+    id: 'marketplace-sidebar',
+    name: 'Marketplace in sidebar',
+    description:
+      'Adds a Marketplace shortcut to the main sidebar. Opens /marketplace in the same tab. Admins only.',
+    defaultEnabled: false,
+
+    _item: null,
+    _observer: null,
+    _observedRoot: null,
+    _timer: null,
+    _ensureTimer: null,
+    _onClick: null,
+    _onKeyDown: null,
+
+    init: function () {
+      const self = this;
+      this._onClick = function (ev) {
+        try {
+          if (ev && ev.preventDefault) ev.preventDefault();
+          if (ev && ev.stopPropagation) ev.stopPropagation();
+          self._go();
+        } catch (e) {
+          // ignore
+        }
+      };
+      this._onKeyDown = function (ev) {
+        try {
+          if (ev && (ev.key === 'Enter' || ev.key === ' ')) {
+            if (ev.preventDefault) ev.preventDefault();
+            self._go();
+          }
+        } catch (e) {
+          // ignore
+        }
+      };
+      this._ensure();
+      this._timer = setInterval(function () {
+        try {
+          self._ensure();
+        } catch (e) {
+          // ignore
+        }
+      }, 1500);
+      try {
+        this._observer = new MutationObserver(function () {
+          if (self._ensureTimer) return;
+          self._ensureTimer = setTimeout(function () {
+            self._ensureTimer = null;
+            try {
+              self._ensure();
+            } catch (e) {
+              // ignore
+            }
+          }, 80);
+        });
+      } catch (e) {
+        this._observer = null;
+      }
+      this._observe();
+    },
+
+    destroy: function () {
+      try {
+        if (this._observer) this._observer.disconnect();
+      } catch (e) {
+        // ignore
+      }
+      this._observer = null;
+      this._observedRoot = null;
+      try {
+        if (this._timer) clearInterval(this._timer);
+      } catch (e) {
+        // ignore
+      }
+      this._timer = null;
+      try {
+        if (this._ensureTimer) clearTimeout(this._ensureTimer);
+      } catch (e) {
+        // ignore
+      }
+      this._ensureTimer = null;
+      this._remove();
+    },
+
+    onNavigate: function () {
+      this._ensure();
+    },
+
+    _hass: function () {
+      try {
+        return window.HATweaks && typeof window.HATweaks.getHass === 'function'
+          ? window.HATweaks.getHass()
+          : null;
+      } catch (e) {
+        return null;
+      }
+    },
+
+    _isAdmin: function () {
+      const hass = this._hass();
+      return !!(hass && hass.user && hass.user.is_admin);
+    },
+
+    _sidebar: function () {
+      try {
+        return querySelectorDeep('ha-sidebar');
+      } catch (e) {
+        return null;
+      }
+    },
+
+    _root: function () {
+      const sidebar = this._sidebar();
+      try {
+        return (sidebar && (sidebar.shadowRoot || sidebar)) || null;
+      } catch (e) {
+        return sidebar || null;
+      }
+    },
+
+    _list: function () {
+      const root = this._root();
+      if (!root || typeof root.querySelector !== 'function') return null;
+      try {
+        return (
+          root.querySelector('ha-list-nav.before-spacer') ||
+          root.querySelector('.before-spacer') ||
+          null
+        );
+      } catch (e) {
+        return null;
+      }
+    },
+
+    _savedOrder: function () {
+      const sidebar = this._sidebar();
+      try {
+        if (sidebar && Array.isArray(sidebar._panelOrder)) {
+          return sidebar._panelOrder;
+        }
+      } catch (e) {
+        // fall through to localStorage
+      }
+      try {
+        const raw = localStorage.getItem('sidebarPanelOrder');
+        const parsed = raw ? JSON.parse(raw) : null;
+        return Array.isArray(parsed) ? parsed : [];
+      } catch (e) {
+        return [];
+      }
+    },
+
+    // Place the shortcut where the saved sidebar order puts it. The drag
+    // tweak saves the injected path alongside the real panels; HA ignores
+    // the unknown path when it renders, so we re-create the gap here.
+    _place: function (list, item) {
+      const order = this._savedOrder();
+      const idx = order.indexOf('marketplace');
+      if (idx >= 0) {
+        for (let i = idx + 1; i < order.length; i++) {
+          const path = order[i];
+          if (!path || path === 'marketplace') continue;
+          const root = this._root();
+          const el = root && typeof root.getElementById === 'function'
+            ? root.getElementById('sidebar-panel-' + path)
+            : null;
+          if (el) {
+            el.before(item);
+            return;
+          }
+        }
+        const items = list.querySelectorAll('ha-list-item-button[id^="sidebar-panel-"]');
+        if (items.length) {
+          items[items.length - 1].after(item);
+          return;
+        }
+      }
+      const first = list.querySelector('ha-list-item-button,a');
+      if (first && typeof first.after === 'function') first.after(item);
+      else list.appendChild(item);
+    },
+
+    // Move the shortcut into the slot the saved order gives it, but only
+    // when it is actually in the wrong place. The sidebar renders its real
+    // items after our first pass, and reordering happens after a drag save.
+    _placeIfNeeded: function (list, item) {
+      const order = this._savedOrder();
+      const idx = order.indexOf('marketplace');
+      if (idx < 0) {
+        const first = list.querySelector('ha-list-item-button,a');
+        if (!first || first === item) return;
+        if (first.nextElementSibling !== item) {
+          first.after(item);
+        }
+        return;
+      }
+      let anchor = null;
+      for (let i = idx + 1; i < order.length; i++) {
+        const path = order[i];
+        if (!path || path === 'marketplace') continue;
+        const root = this._root();
+        const el = root && typeof root.getElementById === 'function'
+          ? root.getElementById('sidebar-panel-' + path)
+          : null;
+        if (el) {
+          anchor = el;
+          break;
+        }
+      }
+      if (anchor) {
+        if (item.nextElementSibling !== anchor) anchor.before(item);
+        return;
+      }
+      const items = list.querySelectorAll('ha-list-item-button[id^="sidebar-panel-"]');
+      if (items.length && items[items.length - 1] !== item) {
+        items[items.length - 1].after(item);
+      }
+    },
+
+    _observe: function () {
+      const root = this._root();
+      if (!root || !this._observer || root === this._observedRoot) return;
+      try {
+        this._observer.disconnect();
+        this._observer.observe(root, { childList: true, subtree: true });
+        this._observedRoot = root;
+      } catch (e) {
+        // ignore
+      }
+    },
+
+    _ensure: function () {
+      if (!this._isAdmin()) {
+        this._remove();
+        return;
+      }
+      const list = this._list();
+      if (!list) return;
+      this._observe();
+      let item = this._item;
+      if (!item || !item.isConnected || item.parentNode !== list) {
+        item = list.querySelector('#sidebar-panel-marketplace');
+      }
+      if (!item) {
+        item = this._build();
+        this._place(list, item);
+      }
+      this._item = item;
+      this._placeIfNeeded(list, item);
+      this._markSelected(item);
+    },
+
+    _build: function () {
+      const item = document.createElement('ha-list-item-button');
+      item.id = 'sidebar-panel-marketplace';
+      item.setAttribute('ha-list-item', '');
+      item.setAttribute('role', 'listitem');
+      item.setAttribute('tabindex', '0');
+      item.setAttribute('aria-label', 'Marketplace');
+      const icon = document.createElement('ha-icon');
+      icon.setAttribute('slot', 'start');
+      icon.setAttribute('icon', 'mdi:store');
+      const label = document.createElement('span');
+      label.className = 'item-text';
+      label.setAttribute('slot', 'headline');
+      label.textContent = 'Marketplace';
+      item.appendChild(icon);
+      item.appendChild(label);
+      if (this._onClick) item.addEventListener('click', this._onClick);
+      if (this._onKeyDown) item.addEventListener('keydown', this._onKeyDown);
+      return item;
+    },
+
+    _markSelected: function (item) {
+      if (!item) return;
+      try {
+        const on = window.location.pathname.indexOf('/marketplace') === 0;
+        item.classList.toggle('selected', on);
+      } catch (e) {
+        // ignore
+      }
+    },
+
+    _remove: function () {
+      try {
+        if (this._item && this._item.parentNode) {
+          this._item.parentNode.removeChild(this._item);
+        }
+      } catch (e) {
+        // ignore
+      }
+      this._item = null;
+    },
+
+    _go: function () {
+      try {
+        if (window.location.pathname.indexOf('/marketplace') === 0) return;
+        history.pushState(null, '', '/marketplace');
+        window.dispatchEvent(
+          new CustomEvent('location-changed', { bubbles: true, composed: true })
+        );
+      } catch (e) {
+        try {
+          window.location.assign('/marketplace');
+        } catch (err) {
+          // ignore
+        }
+      }
+    },
+  };
 
   const EditorVersionHistoryTweak = {
     id: 'editor-version-history',
@@ -10150,6 +10470,7 @@
   TweakRegistry.register(RightClickHoldTweak);
   TweakRegistry.register(ChipActiveForTweak);
   TweakRegistry.register(SidebarDragTweak);
+  TweakRegistry.register(MarketplaceSidebarTweak);
   TweakRegistry.register(EditorVersionHistoryTweak);
 
   window.addEventListener('location-changed', handleRouteChange);

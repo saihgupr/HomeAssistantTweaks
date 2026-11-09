@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- Marketplace in sidebar is now a tweak toggle. It adds a Marketplace row to the main sidebar and opens `/marketplace`, with no `panel_custom` config and no restart.
+
+### Removed
+- The native `panel_custom` Marketplace entry and the `marketplace-redirect.js` redirect module. Use the new toggle instead.
+
 ### Fixed
 - Dragging a sidebar item no longer starts Chrome's native link drag, which fired `pointerup` and cancelled the reorder on desktop.
 - The dragged sidebar item is now opaque and outlined, so the rows underneath no longer show through the lifted clone.
