@@ -12,10 +12,10 @@ Press **`T`** anywhere in Home Assistant to open settings. Every toggle applies 
 
 ## Highlights
 
-### Save history and restore in editors
-Step back through previous saves inside the automation editor to inspect earlier revisions and bring back one that worked.
+### Recover earlier versions of automations and scripts
+The Version Control addon snapshots your config files to Git each time they change. With it installed, the automation and script editors gain version navigation: step back through earlier versions of the one you are editing, preview any version in the editor or as YAML, and bring it back by saving.
 
-Version history needs the [Home Assistant Version Control](https://github.com/saihgupr/HomeAssistantVersionControl) addon installed.
+Requires the [Home Assistant Version Control](https://github.com/saihgupr/HomeAssistantVersionControl) addon.
 
 ![Stepping back through earlier saves in the automation editor](assets/version-history.gif)
 
@@ -48,6 +48,10 @@ Drag sidebar items into the order you want. The order saves to Home Assistant's 
 Give a chip a `for:` duration and it stays hidden until the entity state has lasted that long. No template math or helper sensors needed.
 
 ![Mushroom chips waiting for state duration](assets/mushroom-chips.gif)
+
+---
+
+## New Additions
 
 ### Optional Marketplace sidebar item
 Adds a direct link to the Home Assistant Marketplace in the sidebar for admin users. No `panel_custom` configuration or restart needed. It can be reordered or hidden at any time.
