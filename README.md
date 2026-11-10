@@ -175,9 +175,9 @@ This is a community project. To submit a tweak, follow [CONTRIBUTING.md](CONTRIB
 
 ## Support & Feedback
 
-- Star this project on [GitHub](https://github.com/saihgupr/HomeAssistantTweaks).
-- File bugs or feature requests on [GitHub Issues](https://github.com/saihgupr/HomeAssistantTweaks/issues).
-- Support maintenance on [Ko-fi](https://ko-fi.com/saihgupr).
+If you encounter any issues, bugs, or have feature requests, please [open an issue on GitHub](https://github.com/saihgupr/HomeAssistantTweaks/issues).
+
+Home Assistant Tweaks is open-source and free. If you find it useful, consider giving it a [star on GitHub](https://github.com/saihgupr/HomeAssistantTweaks) or [making a donation](https://ko-fi.com/saihgupr) to support development!
 
 ---
 
