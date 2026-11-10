@@ -85,12 +85,13 @@ Right-click any trigger, condition, or action row inside the editor to copy, cut
    https://github.com/saihgupr/HomeAssistantTweaks
    ```
 2. Install **Home Assistant Tweaks**.
-3. Add the loader to `configuration.yaml` (required so tweaks load on `/config` administration pages as well as dashboards):
+3. Add the loader to `configuration.yaml`. The Marketplace already registers `ha-tweaks.js` as a dashboard resource, so dashboards work without this step. The loader is what makes the tweaks run on Settings, Developer Tools, and other non-dashboard pages too:
    ```yaml
    frontend:
      extra_module_url:
-       - /hacsfiles/HomeAssistantTweaks/ha-tweaks-loader.js
+       - /local/community/HomeAssistantTweaks/ha-tweaks-loader.js
    ```
+   On a pre-2026.11 HACS install, keep using `/hacsfiles/HomeAssistantTweaks/ha-tweaks-loader.js`.
 4. Restart Home Assistant once. Reload your browser page and press **`T`** to choose your tweaks.
 
 <details>
