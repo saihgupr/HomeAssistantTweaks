@@ -7,14 +7,13 @@
  *       - /local/ha-tweaks.js
  *
  * Tweaks:
- *   1. Automation + script context menu (right-click + touch long-press)
+ *   1. Automation + script context menu (right-click + touch long-press, including quick search)
  *   2. Auto-collapse automation & script editor + Collapse/Expand All toolbar button
  *   3. Dashboard empty-space menu (right-click -> New Automation/Script)
  *   4. Right-click = long press on Lovelace cards, rows, tiles, and badges
  *   5. Editor row context menu (right-click a trigger/condition/action row)
  *   6. Chips: show after active for (Mushroom chips-card `for:` gating)
  *   7. Drag sidebar items to reorder them (mouse drag / touch hold)
- *   8. Quick search context menu (right-click an automation/script result)
  */
 
 (() => {
@@ -479,21 +478,6 @@
     return null;
   }
 
-  function isTextEntryTarget(path) {
-    try {
-      const target = path && path[0];
-      if (!target) return false;
-      const tn = ((target.tagName || '') + '').toUpperCase();
-      if (tn === 'INPUT' || tn === 'TEXTAREA' || tn === 'SELECT' || tn === 'OPTION') {
-        return true;
-      }
-      if (target.isContentEditable) return true;
-    } catch (e) {
-      // ignore
-    }
-    return false;
-  }
-
   // Nested modal dialogs sit above HA's own modal dialogs. Their default
   // ::backdrop would dim the page or dialog underneath, so hide it.
   const TOP_LAYER_STYLE_ID = 'ha-tweaks-top-layer-style';
@@ -792,7 +776,7 @@
     id: 'automation-context-menu',
     name: 'Automation + script context menu',
     description:
-      'Right-click (or long-press on touch) an automation or script entity in dashboards or configuration tables. Actions toggleable in settings (T).',
+      'Right-click (or long-press on touch) an automation or script entity in dashboards, configuration tables, or quick search (E / Ctrl+K). Actions toggleable in settings (T).',
     defaultEnabled: true,
     menuItems: [
       { id: 'edit', label: 'Edit' },
@@ -1010,6 +994,9 @@
       }
       const path =
         typeof ev.composedPath === 'function' ? ev.composedPath() : [ev.target];
+      // Quick search results need a top-layer menu host, since the quick bar
+      // is itself a modal dialog.
+      const quickBar = quickBarInPath(path);
       // Editor rows belong to Tweak 5 (trigger/condition/action row menu):
       // yield so a right-click on an editor row never shows Edit/Delete here.
       try {
@@ -1053,7 +1040,9 @@
       if (!friendlyName) friendlyName = entityId;
 
       this.closeAll();
-      this._showMenu(ev.clientX, ev.clientY, entityId, friendlyName, configId);
+      this._showMenu(ev.clientX, ev.clientY, entityId, friendlyName, configId, {
+        quickBar: quickBar,
+      });
       // Background refresh for next time; the open menu used the cache.
       try {
         this._refreshRegistry(hass);
@@ -1072,6 +1061,7 @@
       // Editor rows belong to Tweak 5's long-press: yield.
       const path =
         typeof ev.composedPath === 'function' ? ev.composedPath() : [ev.target];
+      const quickBar = quickBarInPath(path);
       try {
         if (resolveEditorRow(path)) return;
       } catch (e) {
@@ -1084,7 +1074,7 @@
       const x = typeof ev.clientX === 'number' ? ev.clientX : 0;
       const y = typeof ev.clientY === 'number' ? ev.clientY : 0;
       this._lpPointerId = ev.pointerId !== undefined ? ev.pointerId : null;
-      this._lpPending = { entityId: entityId, x: x, y: y, path: path };
+      this._lpPending = { entityId: entityId, x: x, y: y, path: path, quickBar: quickBar };
       const self = this;
       this._lpTimer = setTimeout(function () {
         try {
@@ -1145,7 +1135,9 @@
       // so HA does not read the lift as a completed hold (opens automation).
       this._swallowNextTouchEnd = true;
       this.closeAll();
-      this._showMenu(pending.x, pending.y, pending.entityId, friendlyName, configId);
+      this._showMenu(pending.x, pending.y, pending.entityId, friendlyName, configId, {
+        quickBar: pending.quickBar,
+      });
       // Background refresh for next time; the open menu used the cache.
       try {
         this._refreshRegistry(hass);
@@ -1324,9 +1316,11 @@
         // ignore
       }
 
-      // The quick bar has its own tweak: never treat its rows as page rows.
+      // Quick search rows: ha-list-item-option carries the entity id in its
+      // value. Only automation/script rows resolve; every other row falls
+      // through to the native browser menu.
       try {
-        if (quickBarInPath(path)) return null;
+        if (quickBarInPath(path)) return quickBarEntityIdInPath(path);
       } catch (e) {
         // fall through to normal handling
       }
@@ -1996,358 +1990,6 @@
       }
       this._dialogBackdropEl = null;
       this._quickBarEl = null;
-    },
-  };
-
-  /* ================================================================
-   * Tweak: quick search (E / Ctrl+K) right-click -> Edit + Delete
-   * - HA's quick bar lists every entity. Right-click (or long-press on
-   *   touch) an automation or script row to get the same Edit/Delete
-   *   menu used on dashboards and in the configuration tables.
-   * - The quick bar is a modal dialog in the browser top layer, so the
-   *   menu is rendered inside its own nested modal dialog. A body-level
-   *   fixed menu would sit behind the search surface.
-   * - Edit and Delete close the quick bar first, so the action lands on
-   *   the page you were searching from. Dismissing the menu keeps the
-   *   search open.
-   * ================================================================ */
-  const QuickBarContextMenuTweak = {
-    id: 'quick-bar-context-menu',
-    name: 'Quick search context menu',
-    description:
-      'Right-click (or long-press on touch) an automation or script in quick search (E / Ctrl+K) to edit or delete it without leaving the results.',
-    defaultEnabled: true,
-
-    _onContextMenu: null,
-    _onKeyDown: null,
-    _onPointerDown: null,
-    _onPointerMove: null,
-    _onPointerUp: null,
-    _onPointerCancel: null,
-    _onScrollCapture: null,
-    _onTouchEndCapture: null,
-    _lpTimer: null,
-    _lpPending: null,
-    _lpPointerId: null,
-    _suppressContextUntil: 0,
-    _swallowNextTouchEnd: false,
-
-    init: function () {
-      const self = this;
-      this._onContextMenu = function (ev) {
-        try {
-          self._handleContextMenu(ev);
-        } catch (e) {
-          console.warn(LOG_TAG, 'quick search contextmenu handler failed', e);
-        }
-      };
-      window.addEventListener('contextmenu', this._onContextMenu, { capture: true });
-
-      // Escape closes only our menu. Without this the quick bar's own
-      // dialog would close too, since it thinks it is the top dialog.
-      this._onKeyDown = function (ev) {
-        try {
-          if (
-            ev &&
-            ev.key === 'Escape' &&
-            AutomationContextMenuTweak._quickBarEl
-          ) {
-            try {
-              if (ev.cancelable) ev.preventDefault();
-              ev.stopPropagation();
-            } catch (e) {
-              // ignore
-            }
-            AutomationContextMenuTweak.closeAll();
-          }
-        } catch (e) {
-          // ignore
-        }
-      };
-      window.addEventListener('keydown', this._onKeyDown, { capture: true });
-
-      this._onPointerDown = function (ev) {
-        try {
-          self._handlePointerDown(ev);
-        } catch (e) {
-          console.warn(LOG_TAG, 'quick search pointerdown handler failed', e);
-        }
-      };
-      this._onPointerMove = function (ev) {
-        try {
-          self._handlePointerMove(ev);
-        } catch (e) {
-          // ignore
-        }
-      };
-      this._onPointerUp = function () {
-        try {
-          self._cancelLongPress();
-        } catch (e) {
-          // ignore
-        }
-      };
-      this._onPointerCancel = function () {
-        try {
-          self._cancelLongPress();
-        } catch (e) {
-          // ignore
-        }
-      };
-      this._onScrollCapture = function () {
-        try {
-          self._cancelLongPress();
-        } catch (e) {
-          // ignore
-        }
-      };
-      if (typeof window.PointerEvent !== 'undefined') {
-        window.addEventListener('pointerdown', this._onPointerDown, {
-          capture: true,
-          passive: true,
-        });
-        window.addEventListener('pointermove', this._onPointerMove, {
-          capture: true,
-          passive: true,
-        });
-        window.addEventListener('pointerup', this._onPointerUp, {
-          capture: true,
-          passive: true,
-        });
-        window.addEventListener('pointercancel', this._onPointerCancel, {
-          capture: true,
-          passive: true,
-        });
-        window.addEventListener('scroll', this._onScrollCapture, {
-          capture: true,
-          passive: true,
-        });
-      }
-      // The lift after a long-press targets the original row, so the quick
-      // bar would read it as a completed tap and open the result. Swallow
-      // exactly one release, set at fire time.
-      this._onTouchEndCapture = function (ev) {
-        try {
-          if (self._swallowNextTouchEnd) {
-            self._swallowNextTouchEnd = false;
-            if (ev && ev.cancelable) ev.preventDefault();
-            if (ev && typeof ev.stopPropagation === 'function') ev.stopPropagation();
-          }
-        } catch (e) {
-          // ignore
-        }
-      };
-      window.addEventListener('touchend', this._onTouchEndCapture, {
-        capture: true,
-        passive: false,
-      });
-      // Warm the registry cache so the first right-click already resolves.
-      try {
-        AutomationContextMenuTweak._refreshRegistry(getHass());
-      } catch (e) {
-        // ignore
-      }
-    },
-
-    destroy: function () {
-      if (this._onContextMenu) {
-        window.removeEventListener('contextmenu', this._onContextMenu, {
-          capture: true,
-        });
-        this._onContextMenu = null;
-      }
-      if (this._onKeyDown) {
-        window.removeEventListener('keydown', this._onKeyDown, { capture: true });
-        this._onKeyDown = null;
-      }
-      if (this._onPointerDown) {
-        window.removeEventListener('pointerdown', this._onPointerDown, {
-          capture: true,
-        });
-        this._onPointerDown = null;
-      }
-      if (this._onPointerMove) {
-        window.removeEventListener('pointermove', this._onPointerMove, {
-          capture: true,
-        });
-        this._onPointerMove = null;
-      }
-      if (this._onPointerUp) {
-        window.removeEventListener('pointerup', this._onPointerUp, {
-          capture: true,
-        });
-        this._onPointerUp = null;
-      }
-      if (this._onPointerCancel) {
-        window.removeEventListener('pointercancel', this._onPointerCancel, {
-          capture: true,
-        });
-        this._onPointerCancel = null;
-      }
-      if (this._onScrollCapture) {
-        window.removeEventListener('scroll', this._onScrollCapture, {
-          capture: true,
-        });
-        this._onScrollCapture = null;
-      }
-      if (this._onTouchEndCapture) {
-        window.removeEventListener('touchend', this._onTouchEndCapture, {
-          capture: true,
-        });
-        this._onTouchEndCapture = null;
-      }
-      this._cancelLongPress();
-      if (AutomationContextMenuTweak._quickBarEl) {
-        AutomationContextMenuTweak.closeAll();
-      }
-    },
-
-    onNavigate: function () {
-      this._cancelLongPress();
-      try {
-        AutomationContextMenuTweak._refreshRegistry(getHass());
-      } catch (e) {
-        // ignore
-      }
-    },
-
-    _handleContextMenu: function (ev) {
-      try {
-        if (Date.now() < this._suppressContextUntil) {
-          ev.preventDefault();
-          ev.stopPropagation();
-          return;
-        }
-      } catch (e) {
-        // fall through to normal handling
-      }
-      const path =
-        typeof ev.composedPath === 'function' ? ev.composedPath() : [ev.target];
-      const quickBar = quickBarInPath(path);
-      if (!quickBar) return;
-      if (isTextEntryTarget(path)) return;
-      const entityId = quickBarEntityIdInPath(path);
-      if (!entityId) return; // not an automation or script row
-
-      ev.preventDefault();
-      ev.stopPropagation();
-
-      const hass = getHass();
-      if (!hass) {
-        toast('HA Tweaks: still loading, try again in a second');
-        return;
-      }
-      const stateObj = hass.states ? hass.states[entityId] : undefined;
-      const configId = AutomationContextMenuTweak._configIdFor(
-        hass,
-        entityId,
-        stateObj,
-        path
-      );
-      const friendlyName =
-        (stateObj && stateObj.attributes && stateObj.attributes.friendly_name) ||
-        entityId;
-
-      AutomationContextMenuTweak.closeAll();
-      AutomationContextMenuTweak._showMenu(
-        ev.clientX,
-        ev.clientY,
-        entityId,
-        friendlyName,
-        configId,
-        { quickBar: quickBar }
-      );
-      // Background refresh for next time; the open menu used the cache.
-      try {
-        AutomationContextMenuTweak._refreshRegistry(hass);
-      } catch (e) {
-        // ignore
-      }
-    },
-
-    _handlePointerDown: function (ev) {
-      this._swallowNextTouchEnd = false;
-      if (!ev || ev.pointerType !== 'touch') return;
-      if (ev.isPrimary === false) return;
-      const path =
-        typeof ev.composedPath === 'function' ? ev.composedPath() : [ev.target];
-      const quickBar = quickBarInPath(path);
-      if (!quickBar) return;
-      if (isTextEntryTarget(path)) return;
-      const entityId = quickBarEntityIdInPath(path);
-      if (!entityId) return;
-      this._cancelLongPress();
-      const x = typeof ev.clientX === 'number' ? ev.clientX : 0;
-      const y = typeof ev.clientY === 'number' ? ev.clientY : 0;
-      this._lpPointerId = ev.pointerId !== undefined ? ev.pointerId : null;
-      this._lpPending = { entityId: entityId, x: x, y: y, quickBar: quickBar };
-      const self = this;
-      this._lpTimer = setTimeout(function () {
-        try {
-          self._fireLongPress();
-        } catch (e) {
-          console.warn(LOG_TAG, 'quick search long-press fire failed', e);
-        }
-      }, LONG_PRESS_MS);
-    },
-
-    _handlePointerMove: function (ev) {
-      if (!this._lpTimer || !this._lpPending) return;
-      if (ev && this._lpPointerId !== null && ev.pointerId !== this._lpPointerId) return;
-      const dx = (ev.clientX || 0) - this._lpPending.x;
-      const dy = (ev.clientY || 0) - this._lpPending.y;
-      const tol = LONG_PRESS_MOVE_TOLERANCE_PX;
-      if (dx * dx + dy * dy > tol * tol) this._cancelLongPress();
-    },
-
-    _fireLongPress: function () {
-      const pending = this._lpPending;
-      this._lpTimer = null;
-      this._lpPending = null;
-      this._lpPointerId = null;
-      if (!pending) return;
-      const hass = getHass();
-      if (!hass) {
-        toast('HA Tweaks: still loading, try again in a second');
-        return;
-      }
-      const stateObj = hass.states ? hass.states[pending.entityId] : undefined;
-      const configId = AutomationContextMenuTweak._configIdFor(
-        hass,
-        pending.entityId,
-        stateObj
-      );
-      const friendlyName =
-        (stateObj && stateObj.attributes && stateObj.attributes.friendly_name) ||
-        pending.entityId;
-      // Arm suppression BEFORE showing the menu: iOS fires its synthetic
-      // contextmenu after this timer fires (finger still down).
-      this._suppressContextUntil = Date.now() + LONG_PRESS_SUPPRESS_MS;
-      this._swallowNextTouchEnd = true;
-      AutomationContextMenuTweak.closeAll();
-      AutomationContextMenuTweak._showMenu(
-        pending.x,
-        pending.y,
-        pending.entityId,
-        friendlyName,
-        configId,
-        { quickBar: pending.quickBar }
-      );
-      // Background refresh for next time; the open menu used the cache.
-      try {
-        AutomationContextMenuTweak._refreshRegistry(hass);
-      } catch (e) {
-        // ignore
-      }
-    },
-
-    _cancelLongPress: function () {
-      if (this._lpTimer) {
-        clearTimeout(this._lpTimer);
-        this._lpTimer = null;
-      }
-      this._lpPending = null;
-      this._lpPointerId = null;
     },
   };
 
@@ -7611,7 +7253,6 @@
    * ================================================================ */
   const SETTINGS_ICONS = {
     'automation-context-menu': 'mdi:robot',
-    'quick-bar-context-menu': 'mdi:magnify',
     'editor-row-context-menu': 'mdi:form-select',
     'dashboard-empty-menu': 'mdi:view-dashboard',
     'auto-collapse-editor': 'mdi:arrow-collapse-all',
@@ -11382,7 +11023,6 @@
 
   /* ---------- boot ---------- */
   TweakRegistry.register(AutomationContextMenuTweak);
-  TweakRegistry.register(QuickBarContextMenuTweak);
   TweakRegistry.register(EditorRowContextMenuTweak);
   TweakRegistry.register(AutoCollapseEditorTweak);
   TweakRegistry.register(InlineTitleRenameTweak);

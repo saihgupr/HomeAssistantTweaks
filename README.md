@@ -45,12 +45,12 @@ Give a chip a `for:` duration and it stays hidden until the entity state has las
 ![Mushroom chips waiting for state duration](assets/mushroom-chips.gif)
 
 ### Context menus where you right-click
-Right-click (or long-press in the Companion App) an automation or script to open Edit or Delete.
+Right-click (or long-press in the Companion App) an automation or script to open Edit or Delete. Works on dashboards, in configuration tables, and in quick search.
 
 ![Right-click menu open on an automation row showing Edit and Delete](assets/context-menu.gif)
 
 ### Context menu in quick search
-Press `E` (or `Ctrl+K`) and right-click an automation or script result to edit or delete it without leaving the search. Dismissing the menu keeps the results open.
+Press `E` (or `Ctrl+K`) and right-click an automation or script result to edit or delete it without leaving the search. Dismissing the menu keeps the results open. It uses the same settings toggle as the dashboard and table menus.
 
 ### Copy, cut, or duplicate editor rows
 Right-click any trigger, condition, or action row inside the editor to copy, cut, or duplicate it.
@@ -63,7 +63,7 @@ Right-click any trigger, condition, or action row inside the editor to copy, cut
 
 <table>
 <tr>
-<td width="75%" valign="top"><strong>Quick search context menu</strong><br><small>Right-click (or long-press) an automation or script in quick search (<code>E</code> / <code>Ctrl+K</code>) to Edit or Delete it without leaving the results. Dismissing the menu keeps the search open, and the tweak can be switched on or off in settings.</small></td>
+<td width="75%" valign="top"><strong>Quick search context menu</strong><br><small>Right-click (or long-press) an automation or script in quick search (<code>E</code> / <code>Ctrl+K</code>) to Edit or Delete it without leaving the results. Dismissing the menu keeps the search open. It uses the same settings toggle as the dashboard and table menus.</small></td>
 <td width="25%" valign="top"><a href="assets/search-right-click.png"><img src="assets/search-right-click.png" width="220" alt="Right-click menu on a quick search result showing Edit and Delete" /></a></td>
 </tr>
 </table>

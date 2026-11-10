@@ -8,7 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [1.18.29] - 2026-11-10
 
 ### Added
-- Quick search (`E` / `Ctrl+K`) now has the same right-click menu as dashboards and configuration tables. Right-click (or long-press) an automation or script result to edit or delete it without leaving the results. Dismissing the menu keeps the search open. Toggle it in settings (`T`).
+- Quick search (`E` / `Ctrl+K`) now has the same right-click menu as dashboards and configuration tables. Right-click (or long-press) an automation or script result to edit or delete it without leaving the results. Dismissing the menu keeps the search open. It shares the Automation + script context menu toggle in settings (`T`).
 
 ## [1.18.28] - 2026-11-10
 
