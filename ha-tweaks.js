@@ -23,7 +23,7 @@
   // wins and the duplicate exits before registering listeners.
   if (window.HATweaks && window.HATweaks._loaded) return;
 
-  const HA_TWEAKS_VERSION = '1.18.29';
+  const HA_TWEAKS_VERSION = '1.18.28';
   const CONFIG_KEY = 'ha_tweaks_config';
   // Pre-1.9.0 keys: read once as fallback so existing users keep their toggles.
   const LEGACY_CONFIG_KEY = 'ha_mods_config';
@@ -8659,7 +8659,6 @@
     _sentinel: null,
     _moreObserver: null,
     _progressEl: null,
-    _subEl: null,
     _historyScanError: false,
 
     init: function () {
@@ -9860,20 +9859,16 @@
       this._versionTooltips = [];
     },
 
-    _editorAlias: function (domain, routeId) {
+    _editorDisplayName: function (domain, routeId) {
+      const kind = domain === 'script' ? 'Script' : 'Automation';
       try {
         const outer = this._getOuter();
         const alias = outer && outer.config && outer.config.alias;
-        if (typeof alias === 'string' && alias) return alias;
+        if (typeof alias === 'string' && alias) return kind + ' \u00b7 ' + alias;
       } catch (e) {
         // ignore
       }
-      return routeId || '';
-    },
-
-    _editorDisplayName: function (domain, routeId) {
-      const kind = domain === 'script' ? 'Script' : 'Automation';
-      return kind + ' \u00b7 ' + this._editorAlias(domain, routeId);
+      return kind + ' \u00b7 ' + routeId;
     },
 
     // Best-effort dirty check: when the editor exposes no dirty flag at
@@ -9995,7 +9990,6 @@
         'overflow:hidden;text-overflow:ellipsis;white-space:nowrap;';
       head.appendChild(title);
       head.appendChild(sub);
-      this._subEl = sub;
       dialog.appendChild(head);
 
       let dirty = false;
@@ -10127,7 +10121,6 @@
       this._searchEl = null;
       this._searchWrapEl = null;
       this._progressEl = null;
-      this._subEl = null;
       if (this._backdropEl && this._backdropEl.parentNode) {
         try {
           this._backdropEl.parentNode.removeChild(this._backdropEl);
@@ -10313,7 +10306,6 @@
         }
       }
       this._updateScanProgress();
-      this._updateHistorySubtitle(domain, routeId);
       // Hand focus to search once it appears and the user has not moved
       // focus elsewhere meanwhile.
       try {
@@ -10341,7 +10333,6 @@
       if (!domain || !routeId) return;
       const all = (this._navCommits || []).slice();
       const hasFilter = !!String(this._filter || '').trim();
-      this._updateHistorySubtitle(domain, routeId);
       if (this._searchWrapEl) {
         this._searchWrapEl.style.display = all.length > 8 ? '' : 'none';
       }
@@ -10407,17 +10398,6 @@
         el.textContent =
           'Scanning ' + scan.index + ' of ' + scan.list.length + ' commits...';
       }
-    },
-
-    _updateHistorySubtitle: function (domain, routeId) {
-      if (!this._subEl) return;
-      const count = (this._navCommits || []).length;
-      const base = this._editorDisplayName(domain, routeId);
-      this._subEl.textContent =
-        base +
-        (count
-          ? ' \u00b7 ' + count + (count === 1 ? ' version' : ' versions')
-          : '');
     },
 
     _filteredCommits: function () {
@@ -10494,21 +10474,12 @@
       } catch (e) {
         message = 'No message';
       }
-      // Version Control commits are usually the file name. Show the
-      // automation/script name instead so every row identifies the item
-      // being edited, not the shared YAML file.
-      const alias = this._editorAlias(domain, routeId);
-      const genericMessage =
-        message === 'No message' ||
-        /^[\w./-]+\.ya?ml$/i.test(message) ||
-        /^\d+\s+files?$/i.test(message);
-      const headlineText = genericMessage ? alias || message : message;
-      headline.textContent = headlineText;
+      headline.textContent = message;
       headline.style.cssText =
         'font-size:14px;line-height:1.35;' +
         'color:var(--primary-text-color,#212121);' +
         'overflow:hidden;text-overflow:ellipsis;white-space:nowrap;';
-      headline.title = headlineText;
+      headline.title = message;
       const supporting = document.createElement('div');
       let shortHash = '';
       try {
@@ -10516,18 +10487,12 @@
       } catch (e) {
         shortHash = '';
       }
-      const rawAuthor = commit && commit.author ? String(commit.author) : '';
-      const author = /^(Unknown|Home Assistant Version Control)$/i.test(
-        rawAuthor
-      )
-        ? ''
-        : rawAuthor;
+      const author =
+        commit && commit.author ? String(commit.author) : 'Unknown';
       const when = this._formatWhen(commit);
-      const parts = [when, author, shortHash];
-      if (!genericMessage && message && message !== headlineText) {
-        parts.push(message);
-      }
-      supporting.textContent = parts.filter(Boolean).join(' \u00b7 ');
+      supporting.textContent = [when, author, shortHash]
+        .filter(Boolean)
+        .join(' \u00b7 ');
       supporting.style.cssText =
         'margin-top:2px;font-size:12px;' +
         'color:var(--secondary-text-color,#727272);' +
