@@ -5,6 +5,11 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.18.22] - 2026-11-10
+
+### Fixed
+- The editor version bar now finds the same number of versions as the Version Control panel. It compared normalized configs (ignoring key order and `id`s) and stopped as soon as the newest version was found, while the addon diffs the raw YAML and walks the whole history. Both now match, for example 54 versions for Devices Automations instead of 3.
+
 ## [1.18.21] - 2026-11-10
 
 ### Changed

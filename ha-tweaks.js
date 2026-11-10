@@ -23,7 +23,7 @@
   // wins and the duplicate exits before registering listeners.
   if (window.HATweaks && window.HATweaks._loaded) return;
 
-  const HA_TWEAKS_VERSION = '1.18.21';
+  const HA_TWEAKS_VERSION = '1.18.22';
   const CONFIG_KEY = 'ha_tweaks_config';
   // Pre-1.9.0 keys: read once as fallback so existing users keep their toggles.
   const LEGACY_CONFIG_KEY = 'ha_mods_config';
@@ -8258,19 +8258,15 @@
     });
   }
 
-  function normalizeForComparison(obj) {
-    if (!obj || typeof obj !== 'object') return obj;
-    if (Array.isArray(obj)) {
-      return obj.map(normalizeForComparison);
+  // The Version Control UI counts a new version when the automation's parsed
+  // YAML differs, preserving key order and including ids. Mirror that here so
+  // the toolbar shows the same number of versions as the addon's own panel.
+  function serializeVersionContent(obj) {
+    try {
+      return JSON.stringify(obj);
+    } catch (e) {
+      return '';
     }
-    const result = {};
-    const sortedKeys = Object.keys(obj).sort();
-    for (let i = 0; i < sortedKeys.length; i++) {
-      const key = sortedKeys[i];
-      if (key === 'block-alias' || key === '_type' || key === 'id') continue;
-      result[key] = normalizeForComparison(obj[key]);
-    }
-    return result;
   }
 
   function formatVersionBadge(commitDate) {
@@ -9079,7 +9075,7 @@
             self._liveConfig = JSON.parse(JSON.stringify(outer.config));
           }
           const currentStr = self._liveConfig
-            ? JSON.stringify(normalizeForComparison(self._liveConfig))
+            ? serializeVersionContent(self._liveConfig)
             : '';
 
           if (cached) {
@@ -9134,11 +9130,10 @@
     },
 
     // Version Control parses the whole YAML file for each commit, so deep
-    // scans cost real CPU. Walk the commit list in small windows and stop as
-    // soon as the newest version is found; older ones load on demand when the
-    // user reaches the oldest known version. A fixed first-25 window used to
-    // leave the bar stuck on Current with both arrows disabled, because most
-    // automations have not been touched by the newest commits of the file.
+    // scans cost real CPU. Walk the commit list in small windows and keep
+    // every distinct version, so the bar knows the same set the addon's own
+    // history panel shows. Results appear as they are found and the list is
+    // cached per file state.
     _fetchVersionAt: function (state, commit) {
       const path =
         '/api/' +
@@ -9193,14 +9188,14 @@
           if (isFirstWindow && st.baselineStr === null) {
             const head = results.length ? results[0].content : null;
             if (head) {
-              st.baselineStr = JSON.stringify(normalizeForComparison(head));
+              st.baselineStr = serializeVersionContent(head);
               st.currentStr = st.baselineStr;
             }
           }
           for (let i = 0; i < results.length; i++) {
             const content = results[i].content;
             if (!content) continue;
-            const contentStr = JSON.stringify(normalizeForComparison(content));
+            const contentStr = serializeVersionContent(content);
             if (st.currentStr && contentStr === st.currentStr) continue;
             if (st.lastKept !== null && contentStr === st.lastKept) continue;
 
@@ -9216,20 +9211,14 @@
               // ignore
             }
           }
-          const pending = self._pendingNav;
-          if (pending && added) {
+          if (added && self._pendingNav) {
+            const dir = self._pendingNav;
             self._pendingNav = null;
-            self._finishHistoryScan();
-            self._navigateVersion(pending);
-            return;
+            self._navigateVersion(dir);
           }
-          if (pending || self._navCommits.length === 0) {
-            // Keep looking: the user asked for an older version, or the bar
-            // still has nothing it can step back to.
-            self._scanHistoryWindow();
-            return;
-          }
-          self._finishHistoryScan();
+          // Keep scanning to the end of the metadata window so the bar knows
+          // every version the addon's own history panel shows.
+          self._scanHistoryWindow();
         })
         .catch(function () {
           self._finishHistoryScan();
@@ -9265,23 +9254,6 @@
       }
     },
 
-    _extendHistoryScan: function () {
-      const st = this._historyScan;
-      if (!st || st.scanId !== this._scanId) return false;
-      if (st.index >= this._historyScanMax(st)) {
-        st.complete = true;
-        return false;
-      }
-      this._isScanningCommits = true;
-      try {
-        this._updateNavUI();
-      } catch (e) {
-        // ignore
-      }
-      this._scanHistoryWindow();
-      return true;
-    },
-
     _navigateVersion: function (direction) {
       const commits = this._navCommits || [];
       if (!commits.length) return;
@@ -9299,10 +9271,12 @@
         } else if (currentIndex < commits.length - 1) {
           newIndex = currentIndex + 1;
         } else {
-          // At the oldest version loaded so far. Pull more history on demand
-          // instead of forcing a deep scan on every editor open.
-          this._pendingNav = 'back';
-          if (!this._extendHistoryScan()) this._pendingNav = null;
+          // The background scan may still be finding older versions. Queue
+          // the step so it lands as soon as the next one appears.
+          const st = this._historyScan;
+          if (st && st.scanId === this._scanId && !st.complete) {
+            this._pendingNav = 'back';
+          }
           return;
         }
       } else {
@@ -9679,9 +9653,9 @@
 
       const commits = this._navCommits || [];
       const currentIndex = this._currentIndex;
-      // Keep the arrows inert while a fetch or scan is in flight, but leave
-      // the badge alone: it shows Current or the selected version's date.
-      const busy = this._isScanningCommits || this._isFetchingVersion;
+      // Keep the arrows inert while a version's content loads, but let them
+      // work during a background history scan since the known list is valid.
+      const busy = this._isFetchingVersion;
 
       if (btnBack) {
         btnBack.disabled =
