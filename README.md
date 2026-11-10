@@ -19,13 +19,8 @@ Requires the [Home Assistant Version Control](https://github.com/saihgupr/HomeAs
 
 ![Stepping back through earlier saves in the automation editor](assets/version-history.gif)
 
-### Context menus where you right-click
-Right-click (or long-press in the Companion App) an automation or script to open Edit or Delete. Right-click any trigger, condition, or action row inside the editor to copy, cut, or duplicate it.
-
-![Right-click menu open on an automation row showing Edit and Delete](assets/context-menu.gif)
-
-### Calmer, folded automation editor
-Automations open with all blocks collapsed instead of one long scrolling page. A toolbar button collapses or expands everything at once, so large automations stay readable.
+### Collapsed editor by default
+Instead of one long scrolling page, automations open with all blocks collapsed. A toolbar button collapses or expands everything at once for the whole editor.
 
 ![Automation editor opening with collapsed rows, then expanding one row with the toolbar button](assets/collapse-editor.gif)
 
@@ -48,6 +43,11 @@ Drag sidebar items into the order you want. The order saves to Home Assistant's 
 Give a chip a `for:` duration and it stays hidden until the entity state has lasted that long. No template math or helper sensors needed.
 
 ![Mushroom chips waiting for state duration](assets/mushroom-chips.gif)
+
+### Context menus where you right-click
+Right-click (or long-press in the Companion App) an automation or script to open Edit or Delete. Right-click any trigger, condition, or action row inside the editor to copy, cut, or duplicate it.
+
+![Right-click menu open on an automation row showing Edit and Delete](assets/context-menu.gif)
 
 ---
 
