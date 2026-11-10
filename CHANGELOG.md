@@ -5,26 +5,22 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [1.18.19] - 2026-11-10
 
 ### Added
 - Marketplace in sidebar is now a tweak toggle. It adds a Marketplace row to the main sidebar and opens `/marketplace`, with no `panel_custom` config and no restart.
+
+### Changed
+- Context menus now use Home Assistant's exact dropdown metrics: 4px menu padding, 8px menu radius, 14px item text, 7px/14px item padding, 4px item radius, native neutral hover fill, and 24px icons with native spacing.
 
 ### Removed
 - The native `panel_custom` Marketplace entry and the `marketplace-redirect.js` redirect module. Use the new toggle instead.
 
 ### Fixed
+- Loading the plugin twice on HACS installs (the automatically registered Lovelace resource plus the global `extra_module_url` loader) no longer registers every listener twice. The first instance wins and the duplicate exits.
 - Dragging a sidebar item no longer starts Chrome's native link drag, which fired `pointerup` and cancelled the reorder on desktop.
 - The dragged sidebar item is now opaque and outlined, so the rows underneath no longer show through the lifted clone.
 - Mushroom chips with a `for:` duration now appear within a second of the threshold instead of waiting for the 10-second backstop scan.
-
-## [1.18.19] - 2026-11-07
-
-### Changed
-- Context menus now use Home Assistant's exact dropdown metrics: 4px menu padding, 8px menu radius, 14px item text, 7px/14px item padding, 4px item radius, native neutral hover fill, and 24px icons with native spacing.
-
-### Fixed
-- Loading the plugin twice on HACS installs (the automatically registered Lovelace resource plus the global `extra_module_url` loader) no longer registers every listener twice. The first instance wins and the duplicate exits.
 
 ## [1.18.18] - 2026-11-07
 

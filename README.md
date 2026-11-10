@@ -200,20 +200,49 @@ Check out more tools for Home Assistant from the **[Saihgupr Add-ons Repository]
 <details>
 <summary><b>Frequently Asked Questions (Click to expand)</b></summary>
 
-**Do I need to reload or edit YAML to toggle something?**  
+**Do I need to reload or edit YAML to toggle something?**
+
 No. Press `T`, toggle the switch, and it takes effect immediately. Toggles persist per HA user.
 
-**It says "No UI ID" on Edit/Delete. Why?**  
+**Is it safe? What does it touch?**
+
+It is one ES module with no dependencies and no network calls. It touches the frontend DOM in your browser and stores toggles in Home Assistant user data with a localStorage cache. It does not edit automations, entities, or configuration files. Turning everything off returns the UI to stock.
+
+**Install does not work, or I do not see the plugin.**
+
+The usual causes are the repository added under the wrong category (it has to be Plugin) or the `extra_module_url` line missing from `configuration.yaml`. A Lovelace dashboard resource alone will not load the plugin on config pages. Confirm the restart and look for `[HA Tweaks vX] Initialized` in the console. If the line is missing, run `HATweaks.version` and check the output.
+
+**Can I install it from the Marketplace search?**
+
+Not yet. It is a custom repository, so use Settings > Marketplace > Add from link with the repository URL. On older Home Assistant versions, use HACS > Custom repositories with category Plugin.
+
+**Will this break when Home Assistant updates?**
+
+Each tweak is fault-isolated. If an upstream DOM change breaks one tweak, it logs a warning and steps aside. The frontend and other tweaks keep working. I test against 2026.11.x and patch when the DOM moves.
+
+**Does it work in the Companion App?**
+
+Yes. Toggles sync per user, and touch gestures work on iOS and Android: long press for context menus, hold to lift sidebar items. On a device without a keyboard, run `HATweaks.openSettings()` in a debug console.
+
+**Does it slow down the frontend?**
+
+Should be negligible. Menus and drag handlers are delegated listeners, and editor collapse runs once when the editor opens. There is no polling loop. If you see lag, set `localStorage.ha_tweaks_debug = '1'`, reload, and check the timing lines in the console.
+
+**Does it conflict with card-mod, Mushroom, or other custom cards?**
+
+Generally no. It does not restyle cards or replace rendering. It adds menus and listeners around them. The one overlap is anything else that also grabs right-click or long-press on cards. If a menu does not appear, disable the other plugin's gesture handling and note which two collided.
+
+**Why not submit these changes to Home Assistant core?**
+
+Some of these change default behavior that core may not want, like collapsed editors and instant hold actions. Per-user toggles are easier to ship as a plugin. If one tweak proves broadly useful, it can be proposed upstream with this implementation as a reference.
+
+**How do I confirm which version the browser is actually running?**
+
+Press `T` to open settings. `HATweaks.version` in the browser console is the source of truth.
+
+**It says "No UI ID" on Edit/Delete. Why?**
+
 That entry is YAML-defined without a UI id, so Home Assistant itself cannot open it in the visual editor. Give it an `id:` in YAML to enable editing.
-
-**Will this break when Home Assistant updates?**  
-Each tweak is fault-isolated: if an upstream DOM change breaks one tweak, it logs a warning and steps aside. The frontend and other tweaks keep working.
-
-**Does it work in the Companion App?**  
-Yes. Toggles sync per user, and long-press touch gestures are supported on iOS and Android.
-
-**How do I confirm which version the browser is actually running?**  
-Press `T` to open settings — `HATweaks.version` in the browser console is the source of truth.
 
 </details>
 
