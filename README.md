@@ -8,13 +8,21 @@ Small quality-of-life tweaks for the Home Assistant frontend. Each tweak changes
 
 Press **`T`** anywhere in Home Assistant to open settings. Every toggle applies live instantly—no YAML edits, no page reload, and no server restart required.
 
-![Home Assistant Tweaks tour](assets/hero-tour.gif)
+![Home Assistant Tweaks settings menu: press T to search and toggle tweaks live](assets/settings-menu.gif)
 
 *[Watch the full 75-second tour video](assets/ha-tweaks-tour-v1.18.19.mp4) · [Documentation & Wiki](https://github.com/saihgupr/HomeAssistantTweaks/wiki/Home)*
 
 ---
 
 ## Highlights
+
+### Save history & instant restore in editors
+Step back through previous saves directly inside the automation editor to inspect revisions and instantly restore working states. Never lose a working automation after an unintended edit or bad save.
+
+> [!IMPORTANT]
+> Version history seamlessly integrates with the companion [Home Assistant Version Control](https://github.com/saihgupr/HomeAssistantVersionControl) add-on to provide instant revision snapshots.
+
+![Stepping back through earlier saves in the automation editor](assets/version-history.gif)
 
 ### Context menus anywhere you right-click
 Right-click (or long-press in the Companion App) an automation or script to jump straight into Edit or Delete without digging through submenus. Right-click any trigger, condition, or action row inside the editor to copy, cut, or duplicate it. Right-click blank canvas on a dashboard to start a new card right where your cursor is.
@@ -45,14 +53,6 @@ Drag and drop sidebar items into whatever sequence you reach for most. The order
 Configure chips with a `for:` duration so they stay hidden until an entity state has actually persisted for that length of time—no template math or temporary helper sensors required.
 
 ![Mushroom chips waiting for state duration](assets/mushroom-chips.gif)
-
-### Save history & restore in editors
-Step back through previous saves directly inside the automation editor to inspect earlier revisions and restore working states.
-
-> [!NOTE]
-> Version history requires the companion [Home Assistant Version Control](https://github.com/saihgupr/HomeAssistantVersionControl) add-on to track revision snapshots.
-
-![Stepping back through earlier saves in the automation editor](assets/version-history.gif)
 
 ### Optional Marketplace sidebar item
 Adds a direct link to the Home Assistant Marketplace in the sidebar for admin users—no `panel_custom` configuration or restart needed. Can be reordered or hidden anytime.
