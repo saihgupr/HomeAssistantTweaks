@@ -5,6 +5,16 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.18.28] - 2026-11-10
+
+### Fixed
+- Previewing an older script version and saving it no longer fails with `Message malformed: not a valid option at 'id'`. A script's ID is its key in `scripts.yaml`, not a config field, so the preview no longer injects one.
+
+## [1.18.27] - 2026-11-10
+
+### Fixed
+- The version history popup no longer scrolls to the bottom while the background scan is still adding rows. It stays at the top unless you were already reading the bottom of a scrollable list.
+
 ## [1.18.26] - 2026-11-10
 
 ### Changed

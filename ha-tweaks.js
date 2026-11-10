@@ -23,7 +23,7 @@
   // wins and the duplicate exits before registering listeners.
   if (window.HATweaks && window.HATweaks._loaded) return;
 
-  const HA_TWEAKS_VERSION = '1.18.26';
+  const HA_TWEAKS_VERSION = '1.18.28';
   const CONFIG_KEY = 'ha_tweaks_config';
   // Pre-1.9.0 keys: read once as fallback so existing users keep their toggles.
   const LEGACY_CONFIG_KEY = 'ha_mods_config';
@@ -9507,12 +9507,19 @@
       const manual = this._findManualEditor(outer);
 
       const newConfig = JSON.parse(JSON.stringify(content));
-      if (this._liveConfig && this._liveConfig.id) {
+      const domain = this._editorDomain();
+      const isScript =
+        domain === 'script' ||
+        (!domain && outer.scriptId && !outer.automationId);
+      if (isScript) {
+        // A script's id is its key in scripts.yaml, not a config option.
+        // Leaving it in makes the native Save fail with "not a valid option
+        // at 'id'".
+        delete newConfig.id;
+      } else if (this._liveConfig && this._liveConfig.id) {
         newConfig.id = this._liveConfig.id;
       } else if (outer.automationId) {
         newConfig.id = outer.automationId;
-      } else if (outer.scriptId) {
-        newConfig.id = outer.scriptId;
       }
 
       this._previewMode = true;
@@ -10349,7 +10356,9 @@
         return;
       }
       const wasAtBottom =
-        list && list.scrollHeight - list.scrollTop - list.clientHeight < 48;
+        list &&
+        list.scrollHeight > list.clientHeight + 1 &&
+        list.scrollHeight - list.scrollTop - list.clientHeight < 48;
       if (this._sentinel && this._sentinel.parentNode) {
         try {
           this._sentinel.parentNode.removeChild(this._sentinel);
