@@ -5,11 +5,15 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.18.21] - 2026-11-10
+
+### Changed
+- The editor version bar keeps showing `Current` (or the selected version's date) while history loads instead of flashing `Loading…`. The arrows still disable until the fetch finishes, so double clicks can't race.
+
 ## [1.18.20] - 2026-11-10
 
 ### Fixed
 - Editor version navigation no longer gets stuck on Current with both arrows disabled. The scanner only looked at the newest 25 commits of `automations.yaml` / `scripts.yaml`, but every automation and script shares that file, so most of them had no change in that window. The scanner now walks the commit list in windows until it finds the newest version, loading older versions on demand when you reach the oldest one it knows about.
-- The version bar shows `Loading…` while it searches instead of looking like a dead Current state.
 
 ## [1.18.19] - 2026-11-10
 

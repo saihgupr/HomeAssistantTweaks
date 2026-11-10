@@ -23,7 +23,7 @@
   // wins and the duplicate exits before registering listeners.
   if (window.HATweaks && window.HATweaks._loaded) return;
 
-  const HA_TWEAKS_VERSION = '1.18.20';
+  const HA_TWEAKS_VERSION = '1.18.21';
   const CONFIG_KEY = 'ha_tweaks_config';
   // Pre-1.9.0 keys: read once as fallback so existing users keep their toggles.
   const LEGACY_CONFIG_KEY = 'ha_mods_config';
@@ -9677,23 +9677,18 @@
       const btnForward = nav.querySelector('.version-nav-forward');
       const badge = nav.querySelector('.version-badge');
 
-      if (this._isFetchingVersion || (this._isScanningCommits && !this._navCommits.length)) {
-        if (badge) badge.textContent = 'Loading\u2026';
-        if (btnBack) btnBack.disabled = true;
-        if (btnForward) btnForward.disabled = true;
-        return;
-      }
-
       const commits = this._navCommits || [];
       const currentIndex = this._currentIndex;
-      const scanning = this._isScanningCommits;
+      // Keep the arrows inert while a fetch or scan is in flight, but leave
+      // the badge alone: it shows Current or the selected version's date.
+      const busy = this._isScanningCommits || this._isFetchingVersion;
 
       if (btnBack) {
         btnBack.disabled =
-          scanning || commits.length === 0 || currentIndex >= commits.length - 1;
+          busy || commits.length === 0 || currentIndex >= commits.length - 1;
       }
       if (btnForward) {
-        btnForward.disabled = scanning || currentIndex === -1;
+        btnForward.disabled = busy || currentIndex === -1;
       }
 
       if (badge) {
