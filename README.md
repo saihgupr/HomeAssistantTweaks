@@ -49,6 +49,8 @@ Right-click (or long-press in the Companion App) an automation or script to open
 
 ![Right-click menu open on an automation row showing Edit and Delete](assets/context-menu.gif)
 
+![Right-click menu on an editor row showing Duplicate, Copy, Cut, and more](assets/editor-row-menu.gif)
+
 ---
 
 ## New Additions
