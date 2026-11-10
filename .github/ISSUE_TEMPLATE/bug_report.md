@@ -24,7 +24,7 @@ If applicable, add screenshots or screen recordings to help explain your problem
 ### Environment Info
 - **Home Assistant Version**: (e.g. 2026.10.2)
 - **Home Assistant Tweaks Version**: (Run `HATweaks.version` in the console or check the `T` settings popup)
-- **Installation Method**: [e.g. HACS / Manual (`extra_module_url`)]
+- **Installation Method**: [e.g. Marketplace / Manual (`extra_module_url`)]
 - **Client / Browser**: [e.g. Chrome 132, Safari 18, iOS Companion App, Android Companion App]
 - **Operating System**: [e.g. macOS, Windows, iOS, Android]
 

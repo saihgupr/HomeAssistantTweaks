@@ -4,66 +4,68 @@
 [![Support on Ko-fi](https://img.shields.io/badge/Ko--fi-F16061?style=flat&logo=ko-fi&logoColor=white)](https://ko-fi.com/saihgupr)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
-Small quality-of-life tweaks for the Home Assistant frontend. Each tweak changes one specific friction point: it adds a right-click menu where you expect one, keeps the automation editor tidy, removes the hold-action delay, or lets you drag sidebar items into place.
+Small quality-of-life tweaks for the Home Assistant frontend. Each tweak does one thing: it adds a right-click menu where you expect one, keeps the automation editor tidy, removes the hold-action delay, or lets you drag sidebar items into place.
 
-Press **`T`** anywhere in Home Assistant to open settings. Every toggle applies live instantly—no YAML edits, no page reload, and no server restart required.
+Press **`T`** anywhere in Home Assistant to open settings. Every toggle applies right away. No YAML edits, no page reload, no server restart.
 
 ![Home Assistant Tweaks settings menu: press T to search and toggle tweaks live](assets/settings-menu.gif)
 
-*[Watch the full 75-second tour video](assets/ha-tweaks-tour-v1.18.19.mp4) · [Documentation & Wiki](https://github.com/saihgupr/HomeAssistantTweaks/wiki/Home)*
+*[Watch the full tour video](assets/ha-tweaks-tour-v1.18.19.mp4) · [Documentation & Wiki](https://github.com/saihgupr/HomeAssistantTweaks/wiki/Home)*
 
 ---
 
 ## Highlights
 
-### Save history & instant restore in editors
-Step back through previous saves directly inside the automation editor to inspect revisions and instantly restore working states. Never lose a working automation after an unintended edit or bad save.
+### Save history and restore in editors
+Step back through previous saves inside the automation editor to inspect earlier revisions and bring back one that worked.
 
-> [!IMPORTANT]
-> Version history seamlessly integrates with the companion [Home Assistant Version Control](https://github.com/saihgupr/HomeAssistantVersionControl) add-on to provide instant revision snapshots.
+Version history needs the [Home Assistant Version Control](https://github.com/saihgupr/HomeAssistantVersionControl) addon installed.
 
 ![Stepping back through earlier saves in the automation editor](assets/version-history.gif)
 
-### Context menus anywhere you right-click
-Right-click (or long-press in the Companion App) an automation or script to jump straight into Edit or Delete without digging through submenus. Right-click any trigger, condition, or action row inside the editor to copy, cut, or duplicate it. Right-click blank canvas on a dashboard to start a new card right where your cursor is.
+### Context menus where you right-click
+Right-click (or long-press in the Companion App) an automation or script to open Edit or Delete. Right-click any trigger, condition, or action row inside the editor to copy, cut, or duplicate it.
 
 ![Right-click menu open on an automation row showing Edit and Delete](assets/context-menu.gif)
 
 ### Calmer, folded automation editor
-Automations open with all blocks collapsed instead of sprawling out over yards of screen. A toolbar button lets you **Collapse All** or **Expand All** with a single click, keeping even complex 50-action automations clean and readable.
+Automations open with all blocks collapsed instead of one long scrolling page. A toolbar button collapses or expands everything at once, so large automations stay readable.
 
 ![Automation editor opening with collapsed rows, then expanding one row with the toolbar button](assets/collapse-editor.gif)
 
 ### Inline title renaming
-Click the title in the editor header to edit and rename it directly in place. Hit Enter or click outside to save. No opening overflow menus or metadata dialogs just to fix a typo.
+Click the title in the editor header and rename it there. Press Enter or click outside to save.
 
 ![Clicking the automation title in the editor header and renaming it inline](assets/inline-rename.gif)
 
 ### Instant card hold actions
-Right-click any dashboard card, badge, or tile to trigger its hold action immediately. Skips the default 500 ms press-and-hold wait while keeping normal left-clicks untouched.
+Right-click any dashboard card, badge, or tile to trigger its hold action at once, without the usual press-and-hold wait. Left-clicks work as before.
 
 ![Right-clicking a dashboard card to trigger its hold action immediately](assets/hold-action.gif)
 
 ### Drag-to-reorder sidebar
-Drag and drop sidebar items into whatever sequence you reach for most. The order saves directly into Home Assistant's native sidebar storage, syncing cleanly per user across desktop and mobile devices.
+Drag sidebar items into the order you want. The order saves to Home Assistant's own sidebar storage, so it syncs per user across desktop and mobile.
 
 ![Dragging a sidebar item to a new position](assets/sidebar-drag.gif)
 
 ### Mushroom chips that wait (`for:`)
-Configure chips with a `for:` duration so they stay hidden until an entity state has actually persisted for that length of time—no template math or temporary helper sensors required.
+Give a chip a `for:` duration and it stays hidden until the entity state has lasted that long. No template math or helper sensors needed.
 
 ![Mushroom chips waiting for state duration](assets/mushroom-chips.gif)
 
 ### Optional Marketplace sidebar item
-Adds a direct link to the Home Assistant Marketplace in the sidebar for admin users—no `panel_custom` configuration or restart needed. Can be reordered or hidden anytime.
+Adds a direct link to the Home Assistant Marketplace in the sidebar for admin users. No `panel_custom` configuration or restart needed. It can be reordered or hidden at any time.
+
+### Dashboard empty-space menu
+Right-click (or long-press) empty space on a dashboard to open a short menu with New Automation and New Script. Each item can be switched on or off in settings.
 
 ---
 
 ## Installation
 
-### Quick Start (HACS)
+### Quick Start (Marketplace)
 
-1. Click the HACS badge above, or in Home Assistant go to **Settings → Marketplace → Add from link** (or **HACS → Custom repositories**) with category **Plugin**, and enter:
+1. Click the badge above, or in Home Assistant go to **Settings → Marketplace → Add from link** (on older versions: **Marketplace → Custom repositories**) with category **Plugin**, and enter:
    ```text
    https://github.com/saihgupr/HomeAssistantTweaks
    ```
@@ -97,7 +99,7 @@ Adds a direct link to the Home Assistant Marketplace in the sidebar for admin us
 <summary><b>Updating & Verifying</b></summary>
 
 ### Updates
-Update the plugin in HACS, then reload the page. The loader checks the asset ETag, so updates take effect immediately on reload without restarting Home Assistant.
+Update the plugin in Marketplace, then reload the page. The loader checks the asset ETag, so updates take effect immediately on reload without restarting Home Assistant.
 
 ### Verification
 Open your browser developer console (`F12` or `Cmd+Option+I`) and look for:
@@ -112,31 +114,31 @@ Typing `HATweaks.version` in the console returns the active version string.
 
 ## How It Works & Safety
 
-- **Zero dependencies & zero external network calls:** One lightweight script with no external trackers, CDN requests, or telemetry.
-- **Frontend-only presentation:** Changes happen entirely in your browser DOM. It never edits your backend YAML files, automations, entities, or storage registries directly.
-- **Per-tweak fault isolation:** Each tweak runs inside its own isolated wrapper. If a future Home Assistant release updates a DOM selector, that specific tweak quietly steps aside and logs a debug message while every other tweak continues working normally.
-- **100% opt-in:** Fresh installs start with all tweaks turned off. You opt in only to what you want. Turning all switches off returns Home Assistant to 100% stock behavior.
-- **Cross-device profile sync:** Toggles are stored in Home Assistant user data with a fast local cache, so your preferences follow your login between desktop browsers and the Home Assistant Companion App.
+- **No dependencies, no network calls.** One small file. Nothing is sent anywhere.
+- **Browser only.** It changes the pages you see. It never edits YAML files, automations, entities, or stored data.
+- **Isolated tweaks.** Each tweak stands alone. If a Home Assistant update breaks one, that one stops and the rest keep working.
+- **Opt in.** Fresh installs start with everything off. Turn on only what you want. Turn everything off to get stock Home Assistant back.
+- **Sync per user.** Toggles are stored in Home Assistant user data with a local cache, so they follow you between desktop and the Companion App.
 
 ---
 
 ## Disable or Remove
 
 - **To temporarily disable:** Press **`T`** and turn off individual switches (or toggle all off to return to stock).
-- **To uninstall:** Remove the plugin from HACS, remove the `extra_module_url` line from `configuration.yaml`, and restart Home Assistant once.
+- **To uninstall:** Remove the plugin from Marketplace, remove the `extra_module_url` line from `configuration.yaml`, and restart Home Assistant once.
 
 ---
 
 ## FAQ
 
 **Does this work in the Home Assistant Companion App?**  
-Yes. Touch interactions are fully mapped: right-clicks become long-presses, and sidebar dragging supports touch-and-hold gestures. On devices without a physical keyboard, you can open the settings panel at any time by running `HATweaks.openSettings()` from a remote console or setting a custom card tap action.
+Yes. Right-clicks become long-presses, and sidebar items drag with touch and hold. On devices without a physical keyboard, run `HATweaks.openSettings()` in a console to open settings.
 
 **Does this cause frontend lag or drain battery?**  
-No. Home Assistant Tweaks contains no continuous polling loops or interval timers. Menus and drag operations are purely event-driven, and editor folding executes once upon editor open.
+No. There is no polling. Menus and drags answer to events, and editor folding runs once when the editor opens.
 
 **Why does an automation say "No UI ID"?**  
-That automation was declared manually in YAML without an `id:` attribute. Home Assistant itself requires an `id:` to open an automation in the visual editor. Add an `id:` key to its YAML definition to enable editing.
+That automation is defined in YAML without an `id:`. Home Assistant needs an `id:` to open it in the visual editor, so add one to the YAML.
 
 ---
 
@@ -154,8 +156,8 @@ That automation was declared manually in YAML without an `id:` attribute. Home A
 
 ## Related Projects
 
-- [Home Assistant Version Control](https://github.com/saihgupr/HomeAssistantVersionControl) — Automated snapshot history and restore engine for automations, scripts, and views (powers the version history tweak).
-- [Home Assistant Time Machine](https://github.com/saihgupr/HomeAssistantTimeMachine) — Browse historical backups and restore individual files, views, and packages.
+- [Home Assistant Version Control](https://github.com/saihgupr/HomeAssistantVersionControl) - Automated snapshot history and restore engine for automations, scripts, and views (powers the version history tweak).
+- [Home Assistant Time Machine](https://github.com/saihgupr/HomeAssistantTimeMachine) - Browse historical backups and restore individual files, views, and packages.
 
 ---
 
@@ -163,7 +165,7 @@ That automation was declared manually in YAML without an `id:` attribute. Home A
 
 - Star this project on [GitHub](https://github.com/saihgupr/HomeAssistantTweaks).
 - File bugs or feature requests on [GitHub Issues](https://github.com/saihgupr/HomeAssistantTweaks/issues).
-- If this project saves you daily clicks, consider supporting maintenance on [Ko-fi](https://ko-fi.com/saihgupr).
+- Support maintenance on [Ko-fi](https://ko-fi.com/saihgupr).
 
 ---
 

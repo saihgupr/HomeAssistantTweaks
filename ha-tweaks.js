@@ -17,7 +17,7 @@
  */
 
 (() => {
-  // HACS registers a Lovelace resource for the plugin file while the README
+  // The Marketplace installer registers a Lovelace resource for the plugin file while the README
   // also loads it globally through frontend.extra_module_url. That can import
   // this module twice under different query strings, so the first instance
   // wins and the duplicate exits before registering listeners.

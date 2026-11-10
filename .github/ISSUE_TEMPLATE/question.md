@@ -12,7 +12,7 @@ What would you like to know or clarify?
 ### Your Context
 - **Home Assistant Version**:
 - **Home Assistant Tweaks Version**:
-- **Installation Method**: [HACS / Manual]
+- **Installation Method**: [Marketplace / Manual]
 - **Relevant configuration or YAML snippet**:
 
 ### What have you tried so far?
