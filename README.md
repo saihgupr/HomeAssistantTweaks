@@ -1,6 +1,6 @@
 # <sup><img src="assets/icon-96.png" width="48" height="48" align="middle" alt="Home Assistant Tweaks" /></sup> Home Assistant Tweaks
 
-Small quality-of-life tweaks for the Home Assistant frontend. Each tweak does one thing: it adds a right-click menu where you expect one, keeps the automation editor tidy, removes the hold-action delay, or lets you drag sidebar items into place.
+Small quality-of-life tweaks for the Home Assistant frontend. Each tweak does one thing: it adds a right-click menu where you expect one, keeps the automation editor tidy, removes the hold-action delay, or lets you drag sidebar items into place. This is a community project and anyone can submit a tweak. There are only a few so far, with many more to come. See [Contributing](CONTRIBUTING.md) to add yours.
 
 Press **`T`** anywhere in Home Assistant to open settings. Every toggle applies right away. No YAML edits, no page reload, no server restart.
 
@@ -162,13 +162,7 @@ That automation is defined in YAML without an `id:`. Home Assistant needs an `id
 
 ## Contributing
 
-1. Fork the repository.
-2. Make your edits in `ha-tweaks.js`.
-3. Verify syntax:
-   ```bash
-   node --check ha-tweaks.js
-   ```
-4. Open a Pull Request targeting `main`.
+This is a community project. To submit a tweak, follow [CONTRIBUTING.md](CONTRIBUTING.md): fork the repository, add your tweak to `ha-tweaks.js`, verify with `node --check ha-tweaks.js`, and open a Pull Request targeting `main`.
 
 ---
 
