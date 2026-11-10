@@ -5,6 +5,11 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.18.26] - 2026-11-10
+
+### Changed
+- The version history popup now lists only commits that changed the automation or script you are editing, matching the Version Control panel. It reuses the editor's background version scan instead of showing every commit that touched the shared YAML file.
+
 ## [1.18.25] - 2026-11-10
 
 ### Fixed

@@ -23,7 +23,7 @@
   // wins and the duplicate exits before registering listeners.
   if (window.HATweaks && window.HATweaks._loaded) return;
 
-  const HA_TWEAKS_VERSION = '1.18.25';
+  const HA_TWEAKS_VERSION = '1.18.26';
   const CONFIG_KEY = 'ha_tweaks_config';
   // Pre-1.9.0 keys: read once as fallback so existing users keep their toggles.
   const LEGACY_CONFIG_KEY = 'ha_mods_config';
@@ -8658,6 +8658,8 @@
     _filter: '',
     _sentinel: null,
     _moreObserver: null,
+    _progressEl: null,
+    _historyScanError: false,
 
     init: function () {
       try {
@@ -8678,6 +8680,7 @@
       this._lastHistoryScan = 0;
       this._historyScan = null;
       this._historyScanDone = false;
+      this._historyScanError = false;
       this._pendingNav = null;
       this.onNavigate(window.location.pathname);
     },
@@ -8823,6 +8826,7 @@
       this._lastHistoryScan = 0;
       this._historyScan = null;
       this._historyScanDone = false;
+      this._historyScanError = false;
       this._pendingNav = null;
 
       if (this._historyRescanTimer) {
@@ -8960,6 +8964,7 @@
         if (self._editorId() !== routeId) return;
         self._historyScanDone = false;
         self._historyScan = null;
+        self._historyScanError = false;
         self._pendingNav = null;
         self._startHistoryScan(domain, routeId);
       }, 1600);
@@ -8997,6 +9002,7 @@
         this._lastHistoryScan = 0;
         this._historyScan = null;
         this._historyScanDone = false;
+        this._historyScanError = false;
         this._pendingNav = null;
       }
       if (this._available) {
@@ -9034,8 +9040,18 @@
 
     _startHistoryScan: function (domain, routeId) {
       const self = this;
-      if (this._isScanningCommits) return;
+      const kind = VcClient.kindFor(domain);
+      const vcId = VcClient.vcIdFor(domain, routeId);
+      if (this._isScanningCommits) {
+        const current = this._historyScan;
+        if (current && current.vcId === vcId) return;
+        // The editor moved to another file while a scan was still running.
+        // Bump the id so the old window results are ignored.
+        this._scanId++;
+        this._isScanningCommits = false;
+      }
       this._isScanningCommits = true;
+      this._historyScanError = false;
       this._lastHistoryScan = Date.now();
       try {
         this._updateNavUI();
@@ -9043,8 +9059,6 @@
         // ignore
       }
       const currentScanId = ++this._scanId;
-      const kind = VcClient.kindFor(domain);
-      const vcId = VcClient.vcIdFor(domain, routeId);
       const cacheKeyBase = vcId;
       const path =
         '/api/' +
@@ -9062,10 +9076,18 @@
           if (self._scanId !== currentScanId) return;
           self._historyScanDone = true;
           const commits = (json && json.commits) || [];
-          self._commits = commits;
           if (!commits.length) {
             self._isScanningCommits = false;
+            self._historyScan = {
+              list: [],
+              index: 0,
+              vcId: vcId,
+              kind: kind,
+              scanId: currentScanId,
+              complete: true,
+            };
             self._updateNavUI();
+            if (self._modalOpen) self._syncHistoryRows();
             return;
           }
           const cacheKey = versionListCacheKey(cacheKeyBase, commits);
@@ -9100,6 +9122,7 @@
             };
             self._isScanningCommits = false;
             self._updateNavUI();
+            if (self._modalOpen) self._syncHistoryRows();
             return;
           }
 
@@ -9120,10 +9143,22 @@
         .catch(function () {
           if (self._scanId === currentScanId) {
             self._isScanningCommits = false;
+            self._historyScanError = true;
             try {
               self._updateNavUI();
             } catch (e) {
               // ignore
+            }
+            if (self._modalOpen) {
+              if (!self._rendered) {
+                self._renderError(
+                  "Couldn't load version history",
+                  domain,
+                  routeId,
+                  true
+                );
+              }
+              self._updateScanProgress();
             }
           }
         });
@@ -9216,6 +9251,10 @@
             self._pendingNav = null;
             self._navigateVersion(dir);
           }
+          if (self._modalOpen) {
+            if (added) self._syncHistoryRows();
+            else self._updateScanProgress();
+          }
           // Keep scanning to the end of the metadata window so the bar knows
           // every version the addon's own history panel shows.
           self._scanHistoryWindow();
@@ -9252,6 +9291,7 @@
       } catch (e) {
         // ignore
       }
+      if (this._modalOpen) this._syncHistoryRows();
     },
 
     _navigateVersion: function (direction) {
@@ -10006,6 +10046,14 @@
       dialog.appendChild(list);
       this._listEl = list;
 
+      const progress = document.createElement('div');
+      progress.setAttribute('data-ha-tweaks', 'version-history-progress');
+      progress.style.cssText =
+        'display:none;padding:0 16px 12px 16px;font-size:12px;' +
+        'color:var(--secondary-text-color,#727272);flex:0 0 auto;';
+      dialog.appendChild(progress);
+      this._progressEl = progress;
+
       document.body.appendChild(dialog);
       this._dialogEl = dialog;
 
@@ -10065,6 +10113,7 @@
       this._listEl = null;
       this._searchEl = null;
       this._searchWrapEl = null;
+      this._progressEl = null;
       if (this._backdropEl && this._backdropEl.parentNode) {
         try {
           this._backdropEl.parentNode.removeChild(this._backdropEl);
@@ -10164,12 +10213,12 @@
       const text = document.createElement('div');
       text.style.cssText = 'min-width:0;';
       const headline = document.createElement('div');
-      headline.textContent = 'No commits yet';
+      headline.textContent = 'No saved versions yet';
       headline.style.cssText =
         'font-size:14px;color:var(--primary-text-color,#212121);';
       const supporting = document.createElement('div');
       supporting.textContent =
-        'Edits to this item will appear here once they are saved.';
+        'Changes to this automation or script will appear here once they are saved.';
       supporting.style.cssText = 'margin-top:2px;font-size:12px;color:inherit;';
       text.appendChild(headline);
       text.appendChild(supporting);
@@ -10218,63 +10267,128 @@
       this._listEl.appendChild(row);
     },
 
+    // The Version Control addon keeps every automation and script in the
+    // same YAML file, so /history-metadata returns commits for the whole
+    // file. The background scan already filters those down to the commits
+    // that changed this automation (the same list the nav bar steps
+    // through), so the popup reuses it instead of showing unrelated edits.
     _fetchHistory: function (domain, routeId) {
-      const self = this;
-      const kind = VcClient.kindFor(domain);
       const vcId = VcClient.vcIdFor(domain, routeId);
-      const path = '/api/' + kind + '/' + encodeURIComponent(vcId) + '/history-metadata';
-      VcClient.vcFetch(path, { method: 'GET' })
-        .then(function (res) {
-          if (!self._modalOpen) return null;
-          if (!res) throw new Error('empty response');
-          if (!res.ok) throw new Error('http ' + res.status);
-          return res.json();
-        })
-        .then(function (json) {
-          if (!self._modalOpen || json === null) return;
-          const commits = (json && json.commits) || [];
-          if (!json || json.success === false || !commits.length) {
-            if (json && json.success === false && json.error) {
-              self._renderError(String(json.error), domain, routeId, true);
-            } else {
-              self._renderEmpty();
-            }
-            return;
-          }
-          self._commits = commits;
-          self._repaintList(domain, routeId);
-          // Hand focus to search once it appears and the user has not
-          // moved focus elsewhere meanwhile.
-          try {
-            if (
-              self._commits.length > 8 &&
-              self._searchEl &&
-              self._dialogEl &&
-              (document.activeElement === self._dialogEl ||
-                document.activeElement === document.body)
-            ) {
-              self._searchEl.focus({ preventScroll: true });
-            }
-          } catch (e) {
-            // ignore
-          }
-        })
-        .catch(function (err) {
-          if (!self._modalOpen) return;
-          let msg = "Couldn't load history";
-          try {
-            if (err && err.message) {
-              if (err.message.indexOf('version control addon') >= 0) {
-                self._renderError('Version Control unavailable', domain, routeId, true);
-                return;
-              }
-              msg = msg + ': ' + err.message;
-            }
-          } catch (e) {
-            // ignore
-          }
-          self._renderError(msg, domain, routeId, true);
-        });
+      const scan = this._historyScan;
+      const restart = !scan || scan.vcId !== vcId;
+      const resume = !restart && !scan.complete && !this._isScanningCommits;
+      this._historyScanError = false;
+      if (restart) {
+        this._navCommits = [];
+        this._versionContentCache = {};
+        this._commits = [];
+        this._renderSkeleton();
+        this._startHistoryScan(domain, routeId);
+      } else {
+        this._commits = (this._navCommits || []).slice();
+        if (this._commits.length) {
+          this._repaintList(domain, routeId);
+        } else if (scan.complete) {
+          this._renderEmpty();
+        } else {
+          this._renderSkeleton();
+        }
+        if (resume) {
+          this._isScanningCommits = true;
+          this._scanHistoryWindow();
+        }
+      }
+      this._updateScanProgress();
+      // Hand focus to search once it appears and the user has not moved
+      // focus elsewhere meanwhile.
+      try {
+        if (
+          this._commits.length > 8 &&
+          this._searchEl &&
+          this._dialogEl &&
+          (document.activeElement === this._dialogEl ||
+            document.activeElement === document.body)
+        ) {
+          this._searchEl.focus({ preventScroll: true });
+        }
+      } catch (e) {
+        // ignore
+      }
+    },
+
+    // Append versions the background scan found after the popup opened.
+    // Repaint only when the filter changes or nothing is on screen yet, so
+    // the user's scroll position survives.
+    _syncHistoryRows: function () {
+      if (!this._modalOpen) return;
+      const domain = this._editorDomain();
+      const routeId = this._editorId();
+      if (!domain || !routeId) return;
+      const all = (this._navCommits || []).slice();
+      const hasFilter = !!String(this._filter || '').trim();
+      if (this._searchWrapEl) {
+        this._searchWrapEl.style.display = all.length > 8 ? '' : 'none';
+      }
+      if (!all.length) {
+        if (this._historyScan && this._historyScan.complete && !hasFilter) {
+          this._renderEmpty();
+        }
+        this._updateScanProgress();
+        return;
+      }
+      if (hasFilter || this._rendered === 0 || this._rendered > all.length) {
+        this._commits = all;
+        this._repaintList(domain, routeId);
+        this._updateScanProgress();
+        return;
+      }
+      this._commits = all;
+      const list = this._listEl;
+      if (!list) {
+        this._updateScanProgress();
+        return;
+      }
+      const wasAtBottom =
+        list && list.scrollHeight - list.scrollTop - list.clientHeight < 48;
+      if (this._sentinel && this._sentinel.parentNode) {
+        try {
+          this._sentinel.parentNode.removeChild(this._sentinel);
+        } catch (e) {
+          // ignore
+        }
+        this._sentinel = null;
+      }
+      const canRestore = !this._isShowRoute() && VcClient.isAdmin();
+      for (let i = this._rendered; i < all.length; i++) {
+        try {
+          list.appendChild(
+            this._makeCommitRow(all[i], domain, routeId, canRestore)
+          );
+        } catch (e) {
+          // one bad row must not block the rest
+        }
+      }
+      this._rendered = all.length;
+      this._clearSentinel();
+      if (list && wasAtBottom) list.scrollTop = list.scrollHeight;
+      this._updateScanProgress();
+    },
+
+    _updateScanProgress: function () {
+      const el = this._progressEl;
+      if (!el) return;
+      if (!this._modalOpen || this._historyScanError || !this._isScanningCommits) {
+        el.style.display = 'none';
+        return;
+      }
+      el.style.display = '';
+      const scan = this._historyScan;
+      if (!scan || !scan.list || !scan.list.length) {
+        el.textContent = 'Loading versions...';
+      } else {
+        el.textContent =
+          'Scanning ' + scan.index + ' of ' + scan.list.length + ' commits...';
+      }
     },
 
     _filteredCommits: function () {
