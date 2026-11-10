@@ -15,7 +15,8 @@ Press **`T`** anywhere in Home Assistant to open settings. Every toggle applies 
 ### Recover earlier versions of automations and scripts
 The Version Control addon snapshots your config files to Git each time they change. With it installed, the automation and script editors gain version navigation: step back through earlier versions of the one you are editing, preview any version in the editor or as YAML, and bring it back by saving.
 
-Requires the [Home Assistant Version Control](https://github.com/saihgupr/HomeAssistantVersionControl) addon.
+> [!NOTE]
+> Requires the [Home Assistant Version Control](https://github.com/saihgupr/HomeAssistantVersionControl) addon.
 
 ![Stepping back through earlier saves in the automation editor](assets/version-history.gif)
 
@@ -60,20 +61,14 @@ Right-click any trigger, condition, or action row inside the editor to copy, cut
 
 <table>
 <tr>
-<th colspan="2" align="left">Optional Marketplace sidebar item</th>
-</tr>
-<tr>
-<td width="75%" valign="top">Adds a direct link to the Home Assistant Marketplace in the sidebar for admin users. No <code>panel_custom</code> configuration or restart needed. It can be reordered or hidden at any time.</td>
+<td width="75%" valign="top"><strong>Optional Marketplace sidebar item</strong><br>Adds a direct link to the Home Assistant Marketplace in the sidebar for admin users. No <code>panel_custom</code> configuration or restart needed. It can be reordered or hidden at any time.</td>
 <td width="25%" valign="top"><a href="assets/marketplace-sidebar.png"><img src="assets/marketplace-sidebar.png" width="220" alt="Sidebar with the Marketplace entry highlighted" /></a></td>
 </tr>
 </table>
 
 <table>
 <tr>
-<th colspan="2" align="left">Dashboard empty-space menu</th>
-</tr>
-<tr>
-<td width="75%" valign="top">Right-click (or long-press) empty space on a dashboard to open a short menu with New Automation and New Script. Each item can be switched on or off in settings.</td>
+<td width="75%" valign="top"><strong>Dashboard empty-space menu</strong><br>Right-click (or long-press) empty space on a dashboard to open a short menu with New Automation and New Script. Each item can be switched on or off in settings.</td>
 <td width="25%" valign="top"><a href="assets/empty-space-menu.png"><img src="assets/empty-space-menu.png" width="220" alt="Right-click menu on empty dashboard space showing New Automation and New Script" /></a></td>
 </tr>
 </table>
