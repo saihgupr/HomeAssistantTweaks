@@ -23,7 +23,7 @@
   // wins and the duplicate exits before registering listeners.
   if (window.HATweaks && window.HATweaks._loaded) return;
 
-  const HA_TWEAKS_VERSION = '1.18.19';
+  const HA_TWEAKS_VERSION = '1.18.20';
   const CONFIG_KEY = 'ha_tweaks_config';
   // Pre-1.9.0 keys: read once as fallback so existing users keep their toggles.
   const LEGACY_CONFIG_KEY = 'ha_mods_config';
@@ -8598,6 +8598,7 @@
     _isScanningCommits: false,
     _isFetchingVersion: false,
     _scanId: 0,
+    _lastHistoryScan: 0,
 
     _modalOpen: false,
     _backdropEl: null,
@@ -8629,6 +8630,7 @@
       this._previewMode = false;
       this._previewData = null;
       this._liveConfig = null;
+      this._lastHistoryScan = 0;
       this.onNavigate(window.location.pathname);
     },
 
@@ -8770,6 +8772,7 @@
       this._probeKey = null;
       this._available = false;
       this._probeInFlight = false;
+      this._lastHistoryScan = 0;
 
       if (this._watchTimer) {
         clearInterval(this._watchTimer);
@@ -8912,10 +8915,21 @@
         this._previewData = null;
         this._liveConfig = null;
         this._versionContentCache = {};
+        this._isScanningCommits = false;
+        this._isFetchingVersion = false;
+        this._lastHistoryScan = 0;
       }
       if (this._available) {
+        // Throttle rescans while empty: the progressive filter needs several
+        // sequential ingress round-trips, and the 1s tick would otherwise
+        // start a new scan (bumping _scanId and aborting the in-flight one)
+        // before the first distinct version is found, leaving the nav stuck
+        // at Current with both arrows disabled.
         if (!this._isScanningCommits && !this._navCommits.length) {
-          this._startHistoryScan(domain, routeId);
+          const now = Date.now();
+          if (!this._lastHistoryScan || now - this._lastHistoryScan > 15000) {
+            this._startHistoryScan(domain, routeId);
+          }
         }
         return;
       }
@@ -8945,6 +8959,7 @@
       const self = this;
       if (this._isScanningCommits) return;
       this._isScanningCommits = true;
+      this._lastHistoryScan = Date.now();
       const currentScanId = ++this._scanId;
       const kind = VcClient.kindFor(domain);
       const vcId = VcClient.vcIdFor(domain, routeId);
@@ -8962,20 +8977,35 @@
         })
         .then(function (json) {
           if (self._scanId !== currentScanId) return;
-          self._isScanningCommits = false;
           const commits = (json && json.commits) || [];
           self._commits = commits;
           if (commits.length > 0) {
+            // Keep _isScanningCommits true through the progressive
+            // at-commit fetches so the 1s tick does not start a competing
+            // scan that aborts this one before older versions are found.
             self._filterCommitsProgressively(commits, domain, routeId, vcId, currentScanId);
+          } else {
+            self._isScanningCommits = false;
+            self._updateNavUI();
           }
         })
         .catch(function () {
           if (self._scanId === currentScanId) {
             self._isScanningCommits = false;
+            try {
+              self._updateNavUI();
+            } catch (e) {
+              // ignore
+            }
           }
         });
     },
 
+    // Walk the file's commit list in windows. A fixed first-25 cap left the
+    // bar stuck on Current with both arrows disabled whenever the automation
+    // had not been touched by the newest commits (most of them, since every
+    // automation shares automations.yaml/scripts.yaml). Requests run a few at
+    // a time and stop once enough distinct versions are collected.
     _filterCommitsProgressively: function (commits, domain, routeId, vcId, scanId) {
       const self = this;
       const kind = VcClient.kindFor(domain);
@@ -8988,46 +9018,84 @@
         ? JSON.stringify(normalizeForComparison(this._liveConfig))
         : '';
 
+      const list = commits || [];
+      const MAX_SCAN = Math.min(list.length, 600);
+      const MAX_VERSIONS = 12;
+      const WINDOW = 20;
+      let index = 0;
       let lastKeptContentStr = null;
-      const commitsToScan = (commits || []).slice(0, 25);
 
-      let promise = Promise.resolve();
-      commitsToScan.forEach(function (commit) {
-        promise = promise.then(function () {
-          if (self._scanId !== scanId) return;
+      const finish = function () {
+        if (self._scanId !== scanId) return;
+        self._isScanningCommits = false;
+        try {
+          self._updateNavUI();
+        } catch (e) {
+          // ignore
+        }
+      };
 
-          const path =
-            '/api/' +
-            kind +
-            '/' +
-            encodeURIComponent(vcId) +
-            '/at-commit?commitHash=' +
-            encodeURIComponent(commit.hash);
+      const fetchAtCommit = function (commit) {
+        const path =
+          '/api/' +
+          kind +
+          '/' +
+          encodeURIComponent(vcId) +
+          '/at-commit?commitHash=' +
+          encodeURIComponent(commit.hash);
+        return VcClient.vcFetch(path, { method: 'GET' })
+          .then(function (res) {
+            if (!res || !res.ok) return null;
+            return res.json();
+          })
+          .then(function (data) {
+            if (!data || !data.success) return null;
+            return kind === 'automation' ? data.automation : data.script;
+          })
+          .catch(function () {
+            return null;
+          });
+      };
 
-          return VcClient.vcFetch(path, { method: 'GET' })
-            .then(function (res) {
-              if (!res || !res.ok) return null;
-              return res.json();
-            })
-            .then(function (data) {
-              if (self._scanId !== scanId) return;
-              if (!data || !data.success) return;
-              const content = kind === 'automation' ? data.automation : data.script;
-              if (!content) return;
-
+      const scanWindow = function () {
+        if (self._scanId !== scanId) return;
+        if (index >= MAX_SCAN || self._navCommits.length >= MAX_VERSIONS) {
+          finish();
+          return;
+        }
+        const window = list.slice(index, index + WINDOW);
+        index += window.length;
+        Promise.all(
+          window.map(function (commit) {
+            return fetchAtCommit(commit).then(function (content) {
+              return { commit: commit, content: content };
+            });
+          })
+        )
+          .then(function (results) {
+            if (self._scanId !== scanId) return;
+            for (let i = 0; i < results.length; i++) {
+              const content = results[i].content;
+              if (!content) continue;
               const contentStr = JSON.stringify(normalizeForComparison(content));
-              if (currentContentStr && contentStr === currentContentStr) return;
-              if (lastKeptContentStr !== null && contentStr === lastKeptContentStr) return;
+              if (currentContentStr && contentStr === currentContentStr) continue;
+              if (lastKeptContentStr !== null && contentStr === lastKeptContentStr) continue;
 
-              self._versionContentCache[commit.hash] = content;
-              self._navCommits.push(commit);
+              self._versionContentCache[results[i].commit.hash] = content;
+              self._navCommits.push(results[i].commit);
               lastKeptContentStr = contentStr;
-
+            }
+            try {
               self._updateNavUI();
-            })
-            .catch(function () {});
-        });
-      });
+            } catch (e) {
+              // ignore
+            }
+            scanWindow();
+          })
+          .catch(finish);
+      };
+
+      scanWindow();
     },
 
     _navigateVersion: function (direction) {
@@ -9421,7 +9489,7 @@
       const btnForward = nav.querySelector('.version-nav-forward');
       const badge = nav.querySelector('.version-badge');
 
-      if (this._isFetchingVersion) {
+      if (this._isFetchingVersion || (this._isScanningCommits && !this._navCommits.length)) {
         if (badge) badge.textContent = 'Loading\u2026';
         if (btnBack) btnBack.disabled = true;
         if (btnForward) btnForward.disabled = true;

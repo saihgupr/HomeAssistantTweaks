@@ -5,6 +5,11 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.18.20] - 2026-11-10
+
+### Fixed
+- Editor version navigation no longer gets stuck showing Current with both arrows disabled. The history scan flag stayed off during the sequential version fetches, so the 1-second tick started a new scan and aborted the in-flight one before older versions loaded. The scan now holds its in-flight flag until filtering finishes and rescans at most every 15 seconds while empty.
+
 ## [1.18.19] - 2026-11-10
 
 ### Added
