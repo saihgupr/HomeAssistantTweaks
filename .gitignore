@@ -1,0 +1,33 @@
+# macOS & OS artifacts
+.DS_Store
+.AppleDouble
+.LSOverride
+Icon?
+._*
+.Spotlight-V100
+.Trashes
+Thumbs.db
+
+# Secrets & Private Files
+/private/
+*.env
+*.env.local
+*.pem
+*.key
+*.p12
+*.pfx
+*.cer
+*.crt
+
+# Editor & IDE files
+.vscode/
+.idea/
+*.sublime-project
+*.sublime-workspace
+
+# Internal project scripts & notes
+deploy.sh
+TODO.md
+launch/
+readme-review/
+.git-backup-*
