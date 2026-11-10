@@ -134,7 +134,7 @@ If the console still shows the old version, the browser kept a cached copy. Hard
 ### Verification
 Open your browser developer console (`F12` or `Cmd+Option+I`) and look for:
 ```text
-[HA Tweaks v1.18.24] Initialized
+[HA Tweaks v1.19.0] Initialized
 ```
 Typing `HATweaks.version` in the console returns the active version string.
 
