@@ -23,7 +23,7 @@
   // wins and the duplicate exits before registering listeners.
   if (window.HATweaks && window.HATweaks._loaded) return;
 
-  const HA_TWEAKS_VERSION = '1.18.24';
+  const HA_TWEAKS_VERSION = '1.18.25';
   const CONFIG_KEY = 'ha_tweaks_config';
   // Pre-1.9.0 keys: read once as fallback so existing users keep their toggles.
   const LEGACY_CONFIG_KEY = 'ha_mods_config';
@@ -10642,6 +10642,16 @@
                   self._appendRows(domain, routeId, canRestore, filtered);
                   if (self._rendered >= filtered.length) {
                     self._clearSentinel();
+                  } else {
+                    // _appendRows removes the old sentinel, so arm a fresh
+                    // one. Without this the list stopped after one extra
+                    // page (75 rows) no matter how many commits existed.
+                    self._setupSentinel(
+                      domain,
+                      routeId,
+                      canRestore,
+                      filtered
+                    );
                   }
                   break;
                 }

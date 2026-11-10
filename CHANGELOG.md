@@ -5,6 +5,11 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.18.25] - 2026-11-10
+
+### Fixed
+- The version history popup keeps loading older commits as you scroll. It stopped after one extra page (75 rows), so a long history looked like it only went back a few days even though the addon had months of commits.
+
 ## [1.18.24] - 2026-11-10
 
 ### Changed
