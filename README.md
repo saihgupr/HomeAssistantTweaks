@@ -13,7 +13,7 @@ Press **`T`** anywhere in Home Assistant to open settings. Every toggle applies 
 ## Highlights
 
 ### Recover earlier versions of automations and scripts
-The Version Control app snapshots your config files to Git each time they change. With it installed, the automation and script editors gain version navigation: step back through earlier versions of the one you are editing, preview any version in the editor or as YAML, and bring it back by saving. Requires the [Home Assistant Version Control](https://github.com/saihgupr/HomeAssistantVersionControl) app.
+The Version Control app snapshots your config files to Git each time they change. With it installed, the automation and script editors gain version navigation: step back through earlier versions of the one you are editing, preview any version in the editor or as YAML, and bring it back by saving. Requires the Home Assistant Version Control app.
 
 ![Stepping back through earlier saves in the automation editor](assets/version-history.gif)
 
@@ -180,9 +180,3 @@ If you encounter any issues, bugs, or have feature requests, please [open an iss
 Home Assistant Tweaks is open-source and free. If you find it useful, consider giving it a star on GitHub or making a donation to support development!
 
 [![ko-fi](https://ko-fi.com/img/githubbutton_sm.svg)](https://ko-fi.com/saihgupr)
-
----
-
-## License
-
-This project is licensed under the [MIT License](LICENSE).
