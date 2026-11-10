@@ -4,74 +4,51 @@
 [![Support on Ko-fi](https://img.shields.io/badge/Ko--fi-F16061?style=flat&logo=ko-fi&logoColor=white)](https://ko-fi.com/saihgupr)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
-## About
+Small tweaks for the Home Assistant frontend. Each one changes one thing: it adds a menu where you expect it, tidies the editor, or removes a wait.
 
-Home Assistant Tweaks is a lightweight, native-feeling collection of quality-of-life frontend tweaks for Home Assistant. Add desktop right-click context menus, a calmer automation editor, instant hold actions, and more — all configurable per user in real time with zero restarts required.
+Turn them on and off by pressing `T` (or running `HATweaks.openSettings()` in the browser console). Every change applies right away.
 
-![Home Assistant Tweaks tour: right-click menu on an automation, then the automation editor opening with all rows collapsed](assets/hero-tour.gif)
+- Automation and script context menu (right-click or long-press for Edit and Delete)
+- Dashboard empty-space menu (right-click blank canvas to start something new)
+- Editor row menu (right-click a trigger, condition, or action row)
+- Editors open collapsed, with a Collapse All / Expand All button
+- Click an editor title to rename it in place
+- Version history in editors (needs the Home Assistant Version Control addon)
+- Right-click a card, badge, or tile to fire its hold action right away
+- Mushroom chips that wait until a state has lasted a `for:` time
+- Drag sidebar items into any order
+- Optional Marketplace entry in the sidebar (admins only)
+- Settings sync per HA user across desktop and the Companion App
 
-*Full tour: version history, context menus, collapsed editor, inline rename, instant hold actions, sidebar drag reorder, and settings. [Watch the full video](assets/ha-tweaks-tour-v1.18.19.mp4).*
+Version history steps back through earlier saves and restores on Save. It only appears when the Version Control addon is installed.
 
----
+Chips with a `for:` time stay hidden until the state has actually lasted that long, with no template math.
 
-## Highlights
+Sidebar order saves to Home Assistant's own sidebar order, so it stays in step with Edit sidebar and syncs per user.
 
-- **Context Menus Anywhere:** Right-click automations, scripts, editor blocks, and empty dashboard canvas for instant actions.
+The Marketplace entry needs no `panel_custom` config and no restart. It can be dragged into place or toggled off at any time.
 
-  ![Right-click menu open on an automation row showing Edit and Delete](assets/context-menu.gif)
+Tested on 2026.11.x. Works in the Companion App, where right-click becomes long-press. Fresh installs start with everything off, so you opt in to only what you want.
 
-- **Calmer Automation Editor:** Automations and scripts open collapsed by default, complete with a Collapse All / Expand All toolbar button.
+![Home Assistant Tweaks tour](assets/hero-tour.gif)
 
-  ![Automation editor opening with collapsed rows, then expanding one row with the toolbar button](assets/collapse-editor.gif)
+[Watch the full tour](assets/ha-tweaks-tour-v1.18.19.mp4). Full guides live in the [Wiki](https://github.com/saihgupr/HomeAssistantTweaks/wiki/Home).
 
-- **Inline Editor Titles:** Click an automation or script name in the editor header to rename it in place. Enter or blur commits the name, Escape cancels.
+## Install
 
-  ![Clicking the automation title in the editor header and renaming it inline](assets/inline-rename.gif)
-
-- **Version History in Editors:** Step back through earlier saves inside the editor, preview any version in the UI or as YAML, and restore it with Save. Pairs with the [Home Assistant Version Control](https://github.com/saihgupr/HomeAssistantVersionControl) addon.
-
-  ![Version history stepping back through earlier saves, previewing an old version, and restoring it with Save](assets/version-history.gif)
-
-- **Instant Hold Actions:** Right-click cards, badges, and tiles to trigger hold actions immediately without the default 500 ms wait.
-
-  ![Right-clicking a dashboard card to trigger its hold action immediately](assets/hold-action.gif)
-
-- **Mushroom Chips That Wait:** Hide a Mushroom chip until its entity has held a state for a set time. Add `for:` to the chip and it stays hidden until the condition is met, no template math required.
-
-  ![Two chips on a dashboard, then a third Demo lamp chip appearing once the lamp has been on for the configured time](assets/mushroom-chips.gif)
-
-- **Drag-to-Reorder Sidebar:** Hold and drag sidebar items into any order you like. Saves to Home Assistant's own sidebar order, so it syncs across devices and matches Edit sidebar.
-
-  ![Dragging a sidebar item to a new position](assets/sidebar-drag.gif)
-
-- **Marketplace Shortcut:** Add a Marketplace row to the main sidebar from the tweaks panel (admins only). No `panel_custom` config and no restart, and it can be dragged into place or toggled off any time.
-
-- **Zero Reloads & Instant Sync:** Toggle any tweak in real time via `T`. Settings sync per HA user across desktop and the Companion App.
-- **Safe & Isolated:** Single plain ES module with no external dependencies; one tweak failing will never break the rest of the frontend.
-
-👉 **[Explore the Complete Tweaks Directory & Guides in the Wiki →](https://github.com/saihgupr/HomeAssistantTweaks/wiki/Home)**
-
----
-
-## Installation
-
-### Option A — HACS (Recommended)
-
-1. Click the badge above, or open **Settings → Marketplace → Add from link** on Home Assistant 2026.11 and paste `https://github.com/saihgupr/HomeAssistantTweaks`. On older versions, use **HACS → Custom repositories** with category **Plugin**. Then install **Home Assistant Tweaks**.
-2. Add the global module URL to `configuration.yaml` (a Lovelace dashboard resource alone does not run on `/config` pages, so this line is required):
+1. Click the badge above, or open **Settings → Marketplace → Add from link** and paste `https://github.com/saihgupr/HomeAssistantTweaks`. On older versions, use **HACS → Custom repositories** with category **Plugin**. Then install **Home Assistant Tweaks**.
+2. Add the loader to `configuration.yaml` (a dashboard resource alone does not run on `/config` pages, so this line is required):
    ```yaml
    frontend:
      extra_module_url:
        - /hacsfiles/HomeAssistantTweaks/ha-tweaks-loader.js
    ```
-3. Restart Home Assistant once, then reload the page. Confirm in the developer console (`F12`):
-   ```
-   [HA Tweaks v1.18.19] Initialized
-   ```
-   The loader probes the installed `ha-tweaks.js` for its current ETag and imports that build. After this one-time setup, plugin updates only need a page reload, not a Home Assistant restart.
+3. Restart Home Assistant once, then reload the page and press `T`.
+
+The loader tracks the current file by ETag, so updates need only a page reload.
 
 <details>
-<summary><b>Option B — Manual Installation (Click to expand)</b></summary>
+<summary><b>Manual installation (click to expand)</b></summary>
 
 1. Copy [`ha-tweaks.js`](ha-tweaks.js) and [`ha-tweaks-loader.js`](ha-tweaks-loader.js) to `<config>/www/`.
 2. Add to `configuration.yaml`:
@@ -80,184 +57,82 @@ Home Assistant Tweaks is a lightweight, native-feeling collection of quality-of-
      extra_module_url:
        - /local/ha-tweaks-loader.js
    ```
-3. Restart Home Assistant once, then reload. Confirm `[HA Tweaks v1.18.19] Initialized` in the console.
+3. Restart Home Assistant once, then reload. Keep both files in the same directory.
 
-> **Note:** The loader keeps the `extra_module_url` stable. It probes `/local/ha-tweaks.js` for its current ETag and imports that revision, so deploying a new `ha-tweaks.js` only needs a page reload, not a Home Assistant restart. Keep both files in the same directory.
-
-> **Upgrading from v1.8.2 or earlier (shipped as HA Mods)?** The file was renamed to `ha-tweaks.js` — update `extra_module_url` to the loader path above. Your toggles carry over automatically; `HATweaks` replaces `HAMods` in the console (`HAMods` still works as an alias).
+Upgrading from v1.8.2 or earlier (shipped as HA Mods): the file was renamed to `ha-tweaks.js`. Update `extra_module_url` to the loader path above. Saved toggles carry over automatically.
 
 </details>
 
----
+## Update
 
-## Usage
+Update the plugin in HACS, then reload the page. No Home Assistant restart is needed after the first setup.
 
-Press **`T`** when not typing in a text field (or run `HATweaks.openSettings()` in the browser console) to open the settings modal. 
+If a tab still shows the old version, close other Home Assistant tabs and reload once more.
 
-Every tweak and individual menu item can be toggled independently. Changes apply immediately without reloading and sync per HA user across desktop and mobile.
+## How it works
 
-Fresh installs start with every tweak off, so you opt in to only what you want. Saved toggles survive updates.
+- One small file with no dependencies and no network calls.
+- It only changes pages in your browser. It does not edit automations, entities, or files.
+- Toggles are stored in Home Assistant user data with a local cache, so they follow your HA user across devices.
+- Each tweak is isolated. If one stops matching the page after a Home Assistant update, it steps aside and the rest keep working.
+- Turning everything off returns the interface to stock.
 
-### Reordering the sidebar
+## Disable / Uninstall
 
-Switch on **Drag to reorder sidebar**, then drag any main-navigation item (dashboards, add-ons, custom panels) up or down. A floating copy follows the pointer with a line showing where it will land; dragging near the top or bottom auto-scrolls the list, and `Escape` cancels.
+To disable, press `T` and switch everything off.
 
-- Mouse lifts the item as soon as you move; touch lifts after a short hold, so normal scrolling is untouched.
-- The order is saved to Home Assistant's own sidebar user data, so it syncs per user and stays in step with Edit sidebar.
-- The fixed block (Settings, Notifications, Profile) is intentionally not draggable.
+To uninstall, remove the plugin in HACS and remove the `extra_module_url` line from `configuration.yaml`, then restart once.
 
-<details>
-<summary><b>Tunables & Constants (Click to expand)</b></summary>
+## Troubleshooting
 
-Default timing and gesture thresholds live near the top of [`ha-tweaks.js`](ha-tweaks.js):
+If a tweak does not appear:
 
-| Constant | Default | What it changes |
-|---|---|---|
-| `LONG_PRESS_MS` | `550` | Touch hold length before a context menu opens |
-| `LONG_PRESS_MOVE_TOLERANCE_PX` | `10` | Finger drift allowed before a press counts as scroll |
-| `LONG_PRESS_SUPPRESS_MS` | `2000` | Window to swallow the synthetic `contextmenu` iOS fires after long-press |
-| `LIFT_CLICK_IGNORE_MS` | `600` | Window where backdrop taps are ignored after menu open |
-| `SIDEBAR_HOLD_MS` | `320` | Touch hold length before a sidebar item lifts for dragging |
-| `SIDEBAR_MOUSE_THRESHOLD_PX` | `5` | Mouse movement needed to start a sidebar drag |
-| `SIDEBAR_AUTOSCROLL_STEP_PX` | `9` | Pixels per frame when dragging near the sidebar's top or bottom edge |
-
-</details>
-
-<details>
-<summary><b>Technical Architecture (Click to expand)</b></summary>
-
-- **Dual-Store Sync:** Combines instant `localStorage` caching with HA user-level server storage (`frontend/get_user_data`).
-- **Deep Shadow-DOM Traversal:** Utilizes `querySelectorDeep` and `composedPath` to interact with custom cards, badges, and nested editor rows.
-- **In-Place Navigation:** Intercepts route changes via `location-changed` and `popstate` to bypass disruptive page reloads.
-- **Editor Lifecycle:** Hooks Lit element `updateComplete` cycles to collapse editor blocks before first paint.
-- **Fault Isolation:** Central `TweakRegistry` wraps each tweak in error boundaries so upstream HA frontend updates cannot break other tweaks or the core UI.
-- **Native Sidebar Order:** Drag-to-reorder writes the same `frontend/set_user_data` payload Edit sidebar uses (`panelOrder` / `hiddenPanels`), so no extra storage is introduced and both UIs stay consistent. The drag shows a clone plus an insertion line and lets Lit re-render from the saved order instead of moving nodes underneath it.
-
-</details>
-
----
-
-## Troubleshooting & Debugging
-
-If a tweak is not appearing or behaving as expected:
-
-1. **Verify Loaded Version:**
-   Press `T` to open settings. To confirm the loaded version, run in the browser console:
-   ```js
-   HATweaks.version
-   ```
-2. **Verify Initialization:**
-   Check the developer console (`F12` or `Cmd + Option + I`). You should see:
-   ```text
-   [HA Tweaks v1.18.19] Initialized
-   ```
-   If not present, check that `extra_module_url` is added under `frontend:` in `configuration.yaml` and not just as a Lovelace dashboard resource.
-3. **Inspect Settings & Cloud Sync:**
-   Run:
-   ```js
-   HATweaks.syncStatus()
-   ```
-4. **Enable Debug Logging:**
-   To turn on detailed logging:
-   ```js
-   localStorage.ha_tweaks_debug = '1';
-   ```
-   Reload the tab. All tweaks will log initialization, DOM matching, and event dispatch details. To disable, run `delete localStorage.ha_tweaks_debug`.
-5. **Refresh the Module:**
-   The loader imports the current build automatically. If a tab still shows an old version, close other Home Assistant tabs and reload. As a last resort, clear site data for the HA origin. No Home Assistant restart is needed.
-
----
-
-## Contributing
-
-Contributions and improvements are welcome!
-
-1. Fork the repository.
-2. Create your branch (`git checkout -b develop` or `git checkout -b feature/your-feature`).
-3. Make your changes in `ha-tweaks.js`.
-4. Run syntax verification:
-   ```bash
-   node --check ha-tweaks.js
-   ```
-5. Commit your changes with clear commit messages.
-6. Submit a Pull Request targeting `main`.
-
----
-
-## Related Projects
-
-Check out more tools for Home Assistant from the **[Saihgupr Add-ons Repository](https://github.com/saihgupr/ha-addons)**:
-
-- **[Home Assistant Time Machine](https://github.com/saihgupr/HomeAssistantTimeMachine)**: Web-based time machine to browse YAML backups and selectively restore individual automations, scripts, Lovelace views, and packages.
-- **[Home Assistant Version Control](https://github.com/saihgupr/HomeAssistantVersionControl)**: Automated backup, history tracking, and instant restore engine.
-
-[![Add Saihgupr Add-ons Repository](https://my.home-assistant.io/badges/supervisor_add_addon_repository.svg)](https://my.home-assistant.io/redirect/supervisor_add_addon_repository/?repository_url=https%3A%2F%2Fgithub.com%2Fsaihgupr%2Fha-addons)
-
----
+1. Check the repository was added under the **Plugin** category, not another type.
+2. Check `extra_module_url` is under `frontend:` in `configuration.yaml`, not just a dashboard resource.
+3. Reload and look for `[HA Tweaks vX] Initialized` in the developer console. `HATweaks.version` in the console shows the running version.
 
 ## FAQ
 
-<details>
-<summary><b>Frequently Asked Questions (Click to expand)</b></summary>
-
-**Do I need to reload or edit YAML to toggle something?**
-
-No. Press `T`, toggle the switch, and it takes effect immediately. Toggles persist per HA user.
-
 **Is it safe? What does it touch?**
 
-It is one ES module with no dependencies and no network calls. It touches the frontend DOM in your browser and stores toggles in Home Assistant user data with a localStorage cache. It does not edit automations, entities, or configuration files. Turning everything off returns the UI to stock.
+It touches the frontend pages in your browser and stores toggles in Home Assistant user data. It does not edit automations, entities, or configuration files.
 
-**Install does not work, or I do not see the plugin.**
+**Will it break when Home Assistant updates?**
 
-The usual causes are the repository added under the wrong category (it has to be Plugin) or the `extra_module_url` line missing from `configuration.yaml`. A Lovelace dashboard resource alone will not load the plugin on config pages. Confirm the restart and look for `[HA Tweaks vX] Initialized` in the console. If the line is missing, run `HATweaks.version` and check the output.
+Each tweak is isolated. If one stops matching the page, it steps aside and the rest keep working. Turning everything off returns the interface to stock.
 
-**Can I install it from the Marketplace search?**
+**Does it work in the Companion App without a keyboard?**
 
-Not yet. It is a custom repository, so use Settings > Marketplace > Add from link with the repository URL. On older Home Assistant versions, use HACS > Custom repositories with category Plugin.
-
-**Will this break when Home Assistant updates?**
-
-Each tweak is fault-isolated. If an upstream DOM change breaks one tweak, it logs a warning and steps aside. The frontend and other tweaks keep working. I test against 2026.11.x and patch when the DOM moves.
-
-**Does it work in the Companion App?**
-
-Yes. Toggles sync per user, and touch gestures work on iOS and Android: long press for context menus, hold to lift sidebar items. On a device without a keyboard, run `HATweaks.openSettings()` in a debug console.
+Yes. Toggles sync per user, and touch gestures work: long-press for menus, hold to lift sidebar items. Without a keyboard, run `HATweaks.openSettings()` from a debug console to open settings.
 
 **Does it slow down the frontend?**
 
-Should be negligible. Menus and drag handlers are delegated listeners, and editor collapse runs once when the editor opens. There is no polling loop. If you see lag, set `localStorage.ha_tweaks_debug = '1'`, reload, and check the timing lines in the console.
+There is no polling loop. Menus and drags respond to events, and editor folding runs once when the editor opens.
 
-**Does it conflict with card-mod, Mushroom, or other custom cards?**
+**Why does it say No UI ID?**
 
-Generally no. It does not restyle cards or replace rendering. It adds menus and listeners around them. The one overlap is anything else that also grabs right-click or long-press on cards. If a menu does not appear, disable the other plugin's gesture handling and note which two collided.
+That entry is defined in YAML without a UI id, so Home Assistant itself cannot open it in the visual editor. Give it an `id:` in YAML to enable editing.
 
-**Why not submit these changes to Home Assistant core?**
+## Contributing
 
-Some of these change default behavior that core may not want, like collapsed editors and instant hold actions. Per-user toggles are easier to ship as a plugin. If one tweak proves broadly useful, it can be proposed upstream with this implementation as a reference.
+1. Fork the repository.
+2. Make your changes in `ha-tweaks.js`.
+3. Run syntax verification:
+   ```bash
+   node --check ha-tweaks.js
+   ```
+4. Submit a Pull Request targeting `main`.
 
-**How do I confirm which version the browser is actually running?**
+## Related Projects
 
-Press `T` to open settings. `HATweaks.version` in the browser console is the source of truth.
+- [Home Assistant Time Machine](https://github.com/saihgupr/HomeAssistantTimeMachine): browse backups and restore individual automations, scripts, views, and packages.
+- [Home Assistant Version Control](https://github.com/saihgupr/HomeAssistantVersionControl): automated backup, history tracking, and restore engine. Required for the version history tweak.
 
-**It says "No UI ID" on Edit/Delete. Why?**
+## Support
 
-That entry is YAML-defined without a UI id, so Home Assistant itself cannot open it in the visual editor. Give it an `id:` in YAML to enable editing.
-
-</details>
-
----
-
-## Support & Feedback
-
-If you find Home Assistant Tweaks useful:
-- ⭐ Star this repository on GitHub.
-- 🐛 Found a bug or have a suggestion? Open an issue on [GitHub Issues](https://github.com/saihgupr/HomeAssistantTweaks/issues).
-- ☕ Support continued maintenance and development:
-
-[![Support on Ko-fi](https://ko-fi.com/img/githubbutton_sm.svg)](https://ko-fi.com/saihgupr)
-
----
+- Star this repository on GitHub.
+- Open an issue on [GitHub Issues](https://github.com/saihgupr/HomeAssistantTweaks/issues) for bugs or suggestions.
+- Support maintenance on [Ko-fi](https://ko-fi.com/saihgupr).
 
 ## License
 
