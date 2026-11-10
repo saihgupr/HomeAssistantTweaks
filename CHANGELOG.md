@@ -5,6 +5,11 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.18.29] - 2026-11-10
+
+### Added
+- Quick search (`E` / `Ctrl+K`) now has the same right-click menu as dashboards and configuration tables. Right-click (or long-press) an automation or script result to edit or delete it without leaving the results. Dismissing the menu keeps the search open. Toggle it in settings (`T`).
+
 ## [1.18.28] - 2026-11-10
 
 ### Fixed

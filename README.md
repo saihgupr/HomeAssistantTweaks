@@ -49,6 +49,9 @@ Right-click (or long-press in the Companion App) an automation or script to open
 
 ![Right-click menu open on an automation row showing Edit and Delete](assets/context-menu.gif)
 
+### Context menu in quick search
+Press `E` (or `Ctrl+K`) and right-click an automation or script result to edit or delete it without leaving the search. Dismissing the menu keeps the results open.
+
 ### Copy, cut, or duplicate editor rows
 Right-click any trigger, condition, or action row inside the editor to copy, cut, or duplicate it.
 
