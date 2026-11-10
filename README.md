@@ -1,6 +1,8 @@
 # <sup><img src="assets/icon-96.png" width="48" height="48" align="middle" alt="Home Assistant Tweaks" /></sup> Home Assistant Tweaks
 
-Small quality-of-life tweaks for the Home Assistant frontend. Each tweak does one thing: it adds a right-click menu where you expect one, keeps the automation editor tidy, removes the hold-action delay, or lets you drag sidebar items into place. This is a community project and anyone can submit a tweak. There are only a few so far, with many more to come. See [Contributing](CONTRIBUTING.md) to add yours.
+Small quality-of-life tweaks that make Home Assistant easier and more enjoyable to use. A growing collection of frontend improvements, new interactions, and little features that make a difference in everyday use.
+
+This is a community project and anyone can submit a tweak. There are only a few so far, with many more to come. See [Contributing](CONTRIBUTING.md) to add yours.
 
 Press **`T`** anywhere in Home Assistant to open settings. Every toggle applies right away. No YAML edits, no page reload, no server restart.
 
