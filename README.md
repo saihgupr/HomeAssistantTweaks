@@ -1,4 +1,4 @@
-# <sup><img src="assets/icon.png" width="48" height="48" align="middle" alt="Home Assistant Tweaks" /></sup> Home Assistant Tweaks
+# <sup><img src="assets/icon-96.png" width="48" height="48" align="middle" alt="Home Assistant Tweaks" /></sup> Home Assistant Tweaks
 
 Small quality-of-life tweaks for the Home Assistant frontend. Each tweak does one thing: it adds a right-click menu where you expect one, keeps the automation editor tidy, removes the hold-action delay, or lets you drag sidebar items into place.
 
@@ -115,7 +115,9 @@ Right-click any trigger, condition, or action row inside the editor to copy, cut
 <summary><b>Updating & Verifying</b></summary>
 
 ### Updates
-Update the plugin in Marketplace, then reload the page. The loader checks the asset ETag, so updates take effect immediately on reload without restarting Home Assistant.
+Update the plugin in Marketplace, then reload the page. The loader checks the asset ETag, so a normal reload usually picks up the new version without restarting Home Assistant.
+
+If the console still shows the old version, the browser kept a cached copy. Hard-reload the page (`Ctrl+F5` or `Cmd+Shift+R`) or clear the site's cached data, then reload again. In the Companion App, force-close and reopen the app.
 
 ### Verification
 Open your browser developer console (`F12` or `Cmd+Option+I`) and look for:
