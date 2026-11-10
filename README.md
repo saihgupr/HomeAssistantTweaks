@@ -56,10 +56,22 @@ Right-click (or long-press in the Companion App) an automation or script to open
 ## New Additions
 
 ### Optional Marketplace sidebar item
-Adds a direct link to the Home Assistant Marketplace in the sidebar for admin users. No `panel_custom` configuration or restart needed. It can be reordered or hidden at any time.
+
+<table>
+<tr>
+<td width="55%" valign="top">Adds a direct link to the Home Assistant Marketplace in the sidebar for admin users. No `panel_custom` configuration or restart needed. It can be reordered or hidden at any time.</td>
+<td width="45%"><img src="assets/marketplace-sidebar.png" alt="Sidebar with the Marketplace entry highlighted, next to the Marketplace repository list" /></td>
+</tr>
+</table>
 
 ### Dashboard empty-space menu
-Right-click (or long-press) empty space on a dashboard to open a short menu with New Automation and New Script. Each item can be switched on or off in settings.
+
+<table>
+<tr>
+<td width="55%" valign="top">Right-click (or long-press) empty space on a dashboard to open a short menu with New Automation and New Script. Each item can be switched on or off in settings.</td>
+<td width="45%"><img src="assets/empty-space-menu.png" alt="Right-click menu on empty dashboard space showing New Automation and New Script" /></td>
+</tr>
+</table>
 
 ---
 
@@ -110,7 +122,7 @@ Update the plugin in Marketplace, then reload the page. The loader checks the as
 ### Verification
 Open your browser developer console (`F12` or `Cmd+Option+I`) and look for:
 ```text
-[HA Tweaks v1.18.19] Initialized
+[HA Tweaks v1.18.24] Initialized
 ```
 Typing `HATweaks.version` in the console returns the active version string.
 

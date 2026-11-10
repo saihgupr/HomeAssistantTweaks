@@ -4,10 +4,10 @@
 
 Only the latest published version of Home Assistant Tweaks receives security updates.
 
-| Version | Supported          |
-| ------- | ------------------ |
-| 1.9.x   | :white_check_mark: |
-| < 1.9.0 | :x:                |
+| Version  | Supported          |
+| -------- | ------------------ |
+| 1.18.x   | :white_check_mark: |
+| < 1.18.0 | :x:                |
 
 ## Reporting a Vulnerability
 
