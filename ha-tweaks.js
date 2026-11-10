@@ -23,7 +23,7 @@
   // wins and the duplicate exits before registering listeners.
   if (window.HATweaks && window.HATweaks._loaded) return;
 
-  const HA_TWEAKS_VERSION = '1.18.22';
+  const HA_TWEAKS_VERSION = '1.18.24';
   const CONFIG_KEY = 'ha_tweaks_config';
   // Pre-1.9.0 keys: read once as fallback so existing users keep their toggles.
   const LEGACY_CONFIG_KEY = 'ha_mods_config';
@@ -8213,11 +8213,11 @@
     target.appendChild(style);
   }
 
-  // Version lists are expensive to rebuild (one YAML parse per commit), so
-  // keep the last few per file state in memory. Keyed by vc id plus HEAD hash
-  // so a new save invalidates naturally.
+  // Version lists are expensive to rebuild (one YAML parse per commit on the
+  // addon side), so keep them per file state in memory. Keyed by vc id plus
+  // HEAD hash so a new save invalidates naturally. A reload starts clean.
   const VERSION_LIST_CACHE = {};
-  const VERSION_LIST_CACHE_TTL = 10 * 60 * 1000;
+  const VERSION_LIST_CACHE_TTL = 30 * 60 * 1000;
   const VERSION_LIST_CACHE_MAX = 12;
 
   function versionListCacheKey(vcId, commits) {

@@ -5,6 +5,11 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.18.24] - 2026-11-10
+
+### Changed
+- Version lists are cached in memory for 30 minutes per file state, so reopening an automation in the same page session does not re-run the full history scan. A page reload starts clean and scans again.
+
 ## [1.18.22] - 2026-11-10
 
 ### Fixed
