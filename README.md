@@ -63,6 +63,13 @@ Right-click any trigger, condition, or action row inside the editor to copy, cut
 
 <table>
 <tr>
+<td width="75%" valign="top"><strong>Quick search context menu</strong><br><small>Right-click (or long-press) an automation or script in quick search (<code>E</code> / <code>Ctrl+K</code>) to Edit or Delete it without leaving the results. Dismissing the menu keeps the search open, and the tweak can be switched on or off in settings.</small></td>
+<td width="25%" valign="top"><a href="assets/search-right-click.png"><img src="assets/search-right-click.png" width="220" alt="Right-click menu on a quick search result showing Edit and Delete" /></a></td>
+</tr>
+</table>
+
+<table>
+<tr>
 <td width="75%" valign="top"><strong>Optional Marketplace sidebar item</strong><br><small>Adds a direct link to the Home Assistant Marketplace in the sidebar for admin users. No <code>panel_custom</code> configuration or restart needed. It can be reordered or hidden at any time.</small></td>
 <td width="25%" valign="top"><a href="assets/marketplace-sidebar.png"><img src="assets/marketplace-sidebar.png" width="220" alt="Sidebar with the Marketplace entry highlighted" /></a></td>
 </tr>
