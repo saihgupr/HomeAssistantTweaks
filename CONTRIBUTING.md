@@ -32,7 +32,7 @@ Every tweak in this project lives in one file: `ha-tweaks.js`. A tweak is a plai
 3. Register it in the list at the bottom of the file next to the other `TweakRegistry.register(...)` calls.
 4. Check your syntax with `node --check ha-tweaks.js`.
 5. Load it in Home Assistant and test with the tweak both on and off. Toggling must never need a reload, and turning it off must leave no trace.
-6. Add your tweak to the Highlights grid in `README.md` so people can find it, with a short GIF or screenshot if you can.
+6. Add your tweak to the Highlights section in `README.md` so people can find it, with a short GIF or screenshot if you can.
 7. Add a `CHANGELOG.md` entry under a new `Unreleased` section at the top.
 
 ## Sending the pull request

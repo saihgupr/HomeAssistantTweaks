@@ -12,24 +12,45 @@ Press **`T`** anywhere in Home Assistant to open settings. Every toggle applies 
 
 ## Highlights
 
-<table>
-<tr>
-<td width="50%" valign="top"><strong>Recover earlier versions of automations and scripts</strong><br><small>The Version Control app snapshots your config files to Git each time they change. Step back through earlier versions, preview any version in the editor or as YAML, and bring it back by saving. Requires the <a href="https://github.com/saihgupr/HomeAssistantVersionControl">Home Assistant Version Control</a> app.</small><br><img src="assets/version-history.gif" alt="Stepping back through earlier saves in the automation editor"></td>
-<td width="50%" valign="top"><strong>Collapsed editor by default</strong><br><small>Instead of one long scrolling page, automations open with all blocks collapsed. A toolbar button collapses or expands everything at once for the whole editor.</small><br><img src="assets/collapse-editor.gif" alt="Automation editor opening with collapsed rows, then expanding one row with the toolbar button"></td>
-</tr>
-<tr>
-<td width="50%" valign="top"><strong>Inline title renaming</strong><br><small>Click the title in the editor header and rename it there. Press Enter or click outside to save.</small><br><img src="assets/inline-rename.gif" alt="Clicking the automation title in the editor header and renaming it inline"></td>
-<td width="50%" valign="top"><strong>Instant card hold actions</strong><br><small>Right-click any dashboard card, badge, or tile to trigger its hold action at once, without the usual press-and-hold wait. Left-clicks work as before.</small><br><img src="assets/hold-action.gif" alt="Right-clicking a dashboard card to trigger its hold action immediately"></td>
-</tr>
-<tr>
-<td width="50%" valign="top"><strong>Drag-to-reorder sidebar</strong><br><small>Drag sidebar items into the order you want. The order saves to Home Assistant's own sidebar storage, so it syncs per user across desktop and mobile.</small><br><img src="assets/sidebar-drag.gif" alt="Dragging a sidebar item to a new position"></td>
-<td width="50%" valign="top"><strong>Mushroom chips that wait (<code>for:</code>)</strong><br><small>Give a chip a <code>for:</code> duration and it stays hidden until the entity state has lasted that long. No template math or helper sensors needed.</small><br><img src="assets/mushroom-chips.gif" alt="Mushroom chips waiting for state duration"></td>
-</tr>
-<tr>
-<td width="50%" valign="top"><strong>Context menus where you right-click</strong><br><small>Right-click (or long-press in the Companion App) an automation or script to open Edit or Delete.</small><br><img src="assets/context-menu.gif" alt="Right-click menu open on an automation row showing Edit and Delete"></td>
-<td width="50%" valign="top"><strong>Copy, cut, or duplicate editor rows</strong><br><small>Right-click any trigger, condition, or action row inside the editor to copy, cut, or duplicate it.</small><br><img src="assets/editor-row-menu.gif" alt="Right-click menu on an editor row showing Duplicate, Copy, Cut, and more"></td>
-</tr>
-</table>
+### Recover earlier versions of automations and scripts
+The Version Control app snapshots your config files to Git each time they change. With it installed, the automation and script editors gain version navigation: step back through earlier versions of the one you are editing, preview any version in the editor or as YAML, and bring it back by saving. Requires the [Home Assistant Version Control](https://github.com/saihgupr/HomeAssistantVersionControl) app.
+
+![Stepping back through earlier saves in the automation editor](assets/version-history.gif)
+
+### Collapsed editor by default
+Instead of one long scrolling page, automations open with all blocks collapsed. A toolbar button collapses or expands everything at once for the whole editor.
+
+![Automation editor opening with collapsed rows, then expanding one row with the toolbar button](assets/collapse-editor.gif)
+
+### Inline title renaming
+Click the title in the editor header and rename it there. Press Enter or click outside to save.
+
+![Clicking the automation title in the editor header and renaming it inline](assets/inline-rename.gif)
+
+### Instant card hold actions
+Right-click any dashboard card, badge, or tile to trigger its hold action at once, without the usual press-and-hold wait. Left-clicks work as before.
+
+![Right-clicking a dashboard card to trigger its hold action immediately](assets/hold-action.gif)
+
+### Drag-to-reorder sidebar
+Drag sidebar items into the order you want. The order saves to Home Assistant's own sidebar storage, so it syncs per user across desktop and mobile.
+
+![Dragging a sidebar item to a new position](assets/sidebar-drag.gif)
+
+### Mushroom chips that wait (`for:`)
+Give a chip a `for:` duration and it stays hidden until the entity state has lasted that long. No template math or helper sensors needed.
+
+![Mushroom chips waiting for state duration](assets/mushroom-chips.gif)
+
+### Context menus where you right-click
+Right-click (or long-press in the Companion App) an automation or script to open Edit or Delete.
+
+![Right-click menu open on an automation row showing Edit and Delete](assets/context-menu.gif)
+
+### Copy, cut, or duplicate editor rows
+Right-click any trigger, condition, or action row inside the editor to copy, cut, or duplicate it.
+
+![Right-click menu on an editor row showing Duplicate, Copy, Cut, and more](assets/editor-row-menu.gif)
 
 ---
 
