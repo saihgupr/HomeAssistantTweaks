@@ -1,4 +1,4 @@
-# Home Assistant Tweaks
+# Home Assistant Tweaks <img src="assets/icon.png" width="80" align="right" alt="Home Assistant Tweaks" />
 
 Small quality-of-life tweaks for the Home Assistant frontend. Each tweak does one thing: it adds a right-click menu where you expect one, keeps the automation editor tidy, removes the hold-action delay, or lets you drag sidebar items into place.
 
@@ -45,9 +45,12 @@ Give a chip a `for:` duration and it stays hidden until the entity state has las
 ![Mushroom chips waiting for state duration](assets/mushroom-chips.gif)
 
 ### Context menus where you right-click
-Right-click (or long-press in the Companion App) an automation or script to open Edit or Delete. Right-click any trigger, condition, or action row inside the editor to copy, cut, or duplicate it.
+Right-click (or long-press in the Companion App) an automation or script to open Edit or Delete.
 
 ![Right-click menu open on an automation row showing Edit and Delete](assets/context-menu.gif)
+
+### Copy, cut, or duplicate editor rows
+Right-click any trigger, condition, or action row inside the editor to copy, cut, or duplicate it.
 
 ![Right-click menu on an editor row showing Duplicate, Copy, Cut, and more](assets/editor-row-menu.gif)
 
@@ -55,21 +58,23 @@ Right-click (or long-press in the Companion App) an automation or script to open
 
 ## New Additions
 
-### Optional Marketplace sidebar item
-
 <table>
 <tr>
-<td width="55%" valign="top">Adds a direct link to the Home Assistant Marketplace in the sidebar for admin users. No `panel_custom` configuration or restart needed. It can be reordered or hidden at any time.</td>
-<td width="45%"><img src="assets/marketplace-sidebar.png" alt="Sidebar with the Marketplace entry highlighted, next to the Marketplace repository list" /></td>
+<th colspan="2" align="left">Optional Marketplace sidebar item</th>
+</tr>
+<tr>
+<td width="75%" valign="top">Adds a direct link to the Home Assistant Marketplace in the sidebar for admin users. No <code>panel_custom</code> configuration or restart needed. It can be reordered or hidden at any time.</td>
+<td width="25%" valign="top"><a href="assets/marketplace-sidebar.png"><img src="assets/marketplace-sidebar.png" width="220" alt="Sidebar with the Marketplace entry highlighted" /></a></td>
 </tr>
 </table>
 
-### Dashboard empty-space menu
-
 <table>
 <tr>
-<td width="55%" valign="top">Right-click (or long-press) empty space on a dashboard to open a short menu with New Automation and New Script. Each item can be switched on or off in settings.</td>
-<td width="45%"><img src="assets/empty-space-menu.png" alt="Right-click menu on empty dashboard space showing New Automation and New Script" /></td>
+<th colspan="2" align="left">Dashboard empty-space menu</th>
+</tr>
+<tr>
+<td width="75%" valign="top">Right-click (or long-press) empty space on a dashboard to open a short menu with New Automation and New Script. Each item can be switched on or off in settings.</td>
+<td width="25%" valign="top"><a href="assets/empty-space-menu.png"><img src="assets/empty-space-menu.png" width="220" alt="Right-click menu on empty dashboard space showing New Automation and New Script" /></a></td>
 </tr>
 </table>
 
