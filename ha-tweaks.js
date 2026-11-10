@@ -8213,6 +8213,51 @@
     target.appendChild(style);
   }
 
+  // Version lists are expensive to rebuild (one YAML parse per commit), so
+  // keep the last few per file state in memory. Keyed by vc id plus HEAD hash
+  // so a new save invalidates naturally.
+  const VERSION_LIST_CACHE = {};
+  const VERSION_LIST_CACHE_TTL = 10 * 60 * 1000;
+  const VERSION_LIST_CACHE_MAX = 12;
+
+  function versionListCacheKey(vcId, commits) {
+    return vcId + '@' + (commits && commits[0] ? commits[0].hash : 'none');
+  }
+
+  function readVersionListCache(key) {
+    const entry = VERSION_LIST_CACHE[key];
+    if (!entry) return null;
+    if (Date.now() - entry.time > VERSION_LIST_CACHE_TTL) {
+      delete VERSION_LIST_CACHE[key];
+      return null;
+    }
+    return entry;
+  }
+
+  function writeVersionListCache(key, entry) {
+    if (!key) return;
+    entry.time = Date.now();
+    VERSION_LIST_CACHE[key] = entry;
+    const keys = Object.keys(VERSION_LIST_CACHE);
+    if (keys.length > VERSION_LIST_CACHE_MAX) {
+      let oldest = null;
+      for (let i = 0; i < keys.length; i++) {
+        const candidate = VERSION_LIST_CACHE[keys[i]];
+        if (!oldest || !candidate || candidate.time < VERSION_LIST_CACHE[oldest].time) {
+          oldest = keys[i];
+        }
+      }
+      if (oldest) delete VERSION_LIST_CACHE[oldest];
+    }
+  }
+
+  function clearVersionListCacheFor(vcId) {
+    const prefix = vcId + '@';
+    Object.keys(VERSION_LIST_CACHE).forEach(function (key) {
+      if (key.indexOf(prefix) === 0) delete VERSION_LIST_CACHE[key];
+    });
+  }
+
   function normalizeForComparison(obj) {
     if (!obj || typeof obj !== 'object') return obj;
     if (Array.isArray(obj)) {
@@ -8599,6 +8644,10 @@
     _isFetchingVersion: false,
     _scanId: 0,
     _lastHistoryScan: 0,
+    _historyScan: null,
+    _historyScanDone: false,
+    _pendingNav: null,
+    _historyRescanTimer: null,
 
     _modalOpen: false,
     _backdropEl: null,
@@ -8631,6 +8680,9 @@
       this._previewData = null;
       this._liveConfig = null;
       this._lastHistoryScan = 0;
+      this._historyScan = null;
+      this._historyScanDone = false;
+      this._pendingNav = null;
       this.onNavigate(window.location.pathname);
     },
 
@@ -8773,7 +8825,14 @@
       this._available = false;
       this._probeInFlight = false;
       this._lastHistoryScan = 0;
+      this._historyScan = null;
+      this._historyScanDone = false;
+      this._pendingNav = null;
 
+      if (this._historyRescanTimer) {
+        clearTimeout(this._historyRescanTimer);
+        this._historyRescanTimer = null;
+      }
       if (this._watchTimer) {
         clearInterval(this._watchTimer);
         this._watchTimer = null;
@@ -8877,15 +8936,37 @@
           this._versionContentCache = {};
           this._scanId++;
           this._isScanningCommits = false;
+          this._historyScan = null;
+          this._historyScanDone = false;
+          this._pendingNav = null;
           this._updateNavUI();
           toast('Version restored and saved');
           const domain = this._editorDomain();
           const routeId = this._editorId();
           if (domain && routeId) {
-            this._startHistoryScan(domain, routeId);
+            this._scheduleHistoryRescan(domain, routeId);
           }
         }
       }
+    },
+
+    // The addon commits its own change about a second after the file lands,
+    // so fetching the commit list immediately can return the pre-save HEAD and
+    // leave a stale list. Drop the cached list and rescan after the debounce.
+    _scheduleHistoryRescan: function (domain, routeId) {
+      const self = this;
+      clearVersionListCacheFor(VcClient.vcIdFor(domain, routeId));
+      if (this._historyRescanTimer) clearTimeout(this._historyRescanTimer);
+      this._historyRescanTimer = setTimeout(function () {
+        self._historyRescanTimer = null;
+        if (self._isScanningCommits) return;
+        if (self._editorDomain() !== domain) return;
+        if (self._editorId() !== routeId) return;
+        self._historyScanDone = false;
+        self._historyScan = null;
+        self._pendingNav = null;
+        self._startHistoryScan(domain, routeId);
+      }, 1600);
     },
 
     // Availability probe; the nav bar shows/hides on the cached result.
@@ -8918,14 +8999,14 @@
         this._isScanningCommits = false;
         this._isFetchingVersion = false;
         this._lastHistoryScan = 0;
+        this._historyScan = null;
+        this._historyScanDone = false;
+        this._pendingNav = null;
       }
       if (this._available) {
-        // Throttle rescans while empty: the progressive filter needs several
-        // sequential ingress round-trips, and the 1s tick would otherwise
-        // start a new scan (bumping _scanId and aborting the in-flight one)
-        // before the first distinct version is found, leaving the nav stuck
-        // at Current with both arrows disabled.
-        if (!this._isScanningCommits && !this._navCommits.length) {
+        // One scan per file state. Retry only after a failed metadata call
+        // (self-healing when the addon is still starting).
+        if (!this._isScanningCommits && !this._navCommits.length && !this._historyScanDone) {
           const now = Date.now();
           if (!this._lastHistoryScan || now - this._lastHistoryScan > 15000) {
             this._startHistoryScan(domain, routeId);
@@ -8960,9 +9041,15 @@
       if (this._isScanningCommits) return;
       this._isScanningCommits = true;
       this._lastHistoryScan = Date.now();
+      try {
+        this._updateNavUI();
+      } catch (e) {
+        // ignore
+      }
       const currentScanId = ++this._scanId;
       const kind = VcClient.kindFor(domain);
       const vcId = VcClient.vcIdFor(domain, routeId);
+      const cacheKeyBase = vcId;
       const path =
         '/api/' +
         kind +
@@ -8977,17 +9064,62 @@
         })
         .then(function (json) {
           if (self._scanId !== currentScanId) return;
+          self._historyScanDone = true;
           const commits = (json && json.commits) || [];
           self._commits = commits;
-          if (commits.length > 0) {
-            // Keep _isScanningCommits true through the progressive
-            // at-commit fetches so the 1s tick does not start a competing
-            // scan that aborts this one before older versions are found.
-            self._filterCommitsProgressively(commits, domain, routeId, vcId, currentScanId);
-          } else {
+          if (!commits.length) {
             self._isScanningCommits = false;
             self._updateNavUI();
+            return;
           }
+          const cacheKey = versionListCacheKey(cacheKeyBase, commits);
+          const cached = readVersionListCache(cacheKey);
+          const outer = self._getOuter();
+          if (outer && outer.config && !self._liveConfig) {
+            self._liveConfig = JSON.parse(JSON.stringify(outer.config));
+          }
+          const currentStr = self._liveConfig
+            ? JSON.stringify(normalizeForComparison(self._liveConfig))
+            : '';
+
+          if (cached) {
+            self._versionContentCache = {};
+            self._navCommits = [];
+            (cached.versions || []).forEach(function (entry) {
+              if (!entry || !entry.commit) return;
+              self._versionContentCache[entry.commit.hash] = entry.content;
+              self._navCommits.push(entry.commit);
+            });
+            self._historyScan = {
+              list: commits,
+              index: cached.index || 0,
+              lastKept: cached.lastKept || null,
+              currentStr: cached.baselineStr || currentStr,
+              baselineStr: cached.baselineStr || null,
+              vcId: vcId,
+              kind: kind,
+              scanId: currentScanId,
+              cacheKey: cacheKey,
+              complete: !!cached.complete,
+            };
+            self._isScanningCommits = false;
+            self._updateNavUI();
+            return;
+          }
+
+          self._historyScan = {
+            list: commits,
+            index: 0,
+            lastKept: null,
+            currentStr: currentStr,
+            baselineStr: null,
+            vcId: vcId,
+            kind: kind,
+            scanId: currentScanId,
+            cacheKey: cacheKey,
+            complete: false,
+          };
+          self._scanHistoryWindow();
         })
         .catch(function () {
           if (self._scanId === currentScanId) {
@@ -9001,101 +9133,153 @@
         });
     },
 
-    // Walk the file's commit list in windows. A fixed first-25 cap left the
-    // bar stuck on Current with both arrows disabled whenever the automation
-    // had not been touched by the newest commits (most of them, since every
-    // automation shares automations.yaml/scripts.yaml). Requests run a few at
-    // a time and stop once enough distinct versions are collected.
-    _filterCommitsProgressively: function (commits, domain, routeId, vcId, scanId) {
+    // Version Control parses the whole YAML file for each commit, so deep
+    // scans cost real CPU. Walk the commit list in small windows and stop as
+    // soon as the newest version is found; older ones load on demand when the
+    // user reaches the oldest known version. A fixed first-25 window used to
+    // leave the bar stuck on Current with both arrows disabled, because most
+    // automations have not been touched by the newest commits of the file.
+    _fetchVersionAt: function (state, commit) {
+      const path =
+        '/api/' +
+        state.kind +
+        '/' +
+        encodeURIComponent(state.vcId) +
+        '/at-commit?commitHash=' +
+        encodeURIComponent(commit.hash);
+      return VcClient.vcFetch(path, { method: 'GET' })
+        .then(function (res) {
+          if (!res || !res.ok) return null;
+          return res.json();
+        })
+        .then(function (data) {
+          if (!data || !data.success) return null;
+          return state.kind === 'automation' ? data.automation : data.script;
+        })
+        .catch(function () {
+          return null;
+        });
+    },
+
+    _historyScanMax: function (state) {
+      return Math.min(state.list.length, 500);
+    },
+
+    _scanHistoryWindow: function () {
       const self = this;
-      const kind = VcClient.kindFor(domain);
-      const outer = this._getOuter();
-      if (outer && outer.config && !this._liveConfig) {
-        this._liveConfig = JSON.parse(JSON.stringify(outer.config));
+      const st = this._historyScan;
+      if (!st || st.scanId !== this._scanId) return;
+      if (st.index >= this._historyScanMax(st)) {
+        this._finishHistoryScan();
+        return;
       }
-
-      const currentContentStr = this._liveConfig
-        ? JSON.stringify(normalizeForComparison(this._liveConfig))
-        : '';
-
-      const list = commits || [];
-      const MAX_SCAN = Math.min(list.length, 600);
-      const MAX_VERSIONS = 12;
-      const WINDOW = 20;
-      let index = 0;
-      let lastKeptContentStr = null;
-
-      const finish = function () {
-        if (self._scanId !== scanId) return;
-        self._isScanningCommits = false;
-        try {
-          self._updateNavUI();
-        } catch (e) {
-          // ignore
-        }
-      };
-
-      const fetchAtCommit = function (commit) {
-        const path =
-          '/api/' +
-          kind +
-          '/' +
-          encodeURIComponent(vcId) +
-          '/at-commit?commitHash=' +
-          encodeURIComponent(commit.hash);
-        return VcClient.vcFetch(path, { method: 'GET' })
-          .then(function (res) {
-            if (!res || !res.ok) return null;
-            return res.json();
-          })
-          .then(function (data) {
-            if (!data || !data.success) return null;
-            return kind === 'automation' ? data.automation : data.script;
-          })
-          .catch(function () {
-            return null;
+      const window = st.list.slice(st.index, st.index + 10);
+      const isFirstWindow = st.index === 0;
+      st.index += window.length;
+      Promise.all(
+        window.map(function (commit) {
+          return self._fetchVersionAt(st, commit).then(function (content) {
+            return { commit: commit, content: content };
           });
-      };
-
-      const scanWindow = function () {
-        if (self._scanId !== scanId) return;
-        if (index >= MAX_SCAN || self._navCommits.length >= MAX_VERSIONS) {
-          finish();
-          return;
-        }
-        const window = list.slice(index, index + WINDOW);
-        index += window.length;
-        Promise.all(
-          window.map(function (commit) {
-            return fetchAtCommit(commit).then(function (content) {
-              return { commit: commit, content: content };
-            });
-          })
-        )
-          .then(function (results) {
-            if (self._scanId !== scanId) return;
-            for (let i = 0; i < results.length; i++) {
-              const content = results[i].content;
-              if (!content) continue;
-              const contentStr = JSON.stringify(normalizeForComparison(content));
-              if (currentContentStr && contentStr === currentContentStr) continue;
-              if (lastKeptContentStr !== null && contentStr === lastKeptContentStr) continue;
-
-              self._versionContentCache[results[i].commit.hash] = content;
-              self._navCommits.push(results[i].commit);
-              lastKeptContentStr = contentStr;
+        })
+      )
+        .then(function (results) {
+          if (st.scanId !== self._scanId) return;
+          let added = 0;
+          // Use the HEAD commit's own content as the baseline so the
+          // comparison never depends on how Home Assistant normalizes the
+          // live editor config. Fall back to the live config when HEAD has
+          // no content for this automation.
+          if (isFirstWindow && st.baselineStr === null) {
+            const head = results.length ? results[0].content : null;
+            if (head) {
+              st.baselineStr = JSON.stringify(normalizeForComparison(head));
+              st.currentStr = st.baselineStr;
             }
+          }
+          for (let i = 0; i < results.length; i++) {
+            const content = results[i].content;
+            if (!content) continue;
+            const contentStr = JSON.stringify(normalizeForComparison(content));
+            if (st.currentStr && contentStr === st.currentStr) continue;
+            if (st.lastKept !== null && contentStr === st.lastKept) continue;
+
+            self._versionContentCache[results[i].commit.hash] = content;
+            self._navCommits.push(results[i].commit);
+            st.lastKept = contentStr;
+            added++;
+          }
+          if (added) {
             try {
               self._updateNavUI();
             } catch (e) {
               // ignore
             }
-            scanWindow();
-          })
-          .catch(finish);
-      };
+          }
+          const pending = self._pendingNav;
+          if (pending && added) {
+            self._pendingNav = null;
+            self._finishHistoryScan();
+            self._navigateVersion(pending);
+            return;
+          }
+          if (pending || self._navCommits.length === 0) {
+            // Keep looking: the user asked for an older version, or the bar
+            // still has nothing it can step back to.
+            self._scanHistoryWindow();
+            return;
+          }
+          self._finishHistoryScan();
+        })
+        .catch(function () {
+          self._finishHistoryScan();
+        });
+    },
 
-      scanWindow();
+    _finishHistoryScan: function () {
+      const self = this;
+      const st = this._historyScan;
+      this._isScanningCommits = false;
+      this._pendingNav = null;
+      if (st) {
+        st.complete = st.index >= this._historyScanMax(st);
+        const versions = [];
+        this._navCommits.forEach(function (commit) {
+          versions.push({
+            commit: commit,
+            content: self._versionContentCache[commit.hash],
+          });
+        });
+        writeVersionListCache(st.cacheKey, {
+          versions: versions,
+          index: st.index,
+          lastKept: st.lastKept,
+          baselineStr: st.baselineStr,
+          complete: st.complete,
+        });
+      }
+      try {
+        this._updateNavUI();
+      } catch (e) {
+        // ignore
+      }
+    },
+
+    _extendHistoryScan: function () {
+      const st = this._historyScan;
+      if (!st || st.scanId !== this._scanId) return false;
+      if (st.index >= this._historyScanMax(st)) {
+        st.complete = true;
+        return false;
+      }
+      this._isScanningCommits = true;
+      try {
+        this._updateNavUI();
+      } catch (e) {
+        // ignore
+      }
+      this._scanHistoryWindow();
+      return true;
     },
 
     _navigateVersion: function (direction) {
@@ -9115,6 +9299,10 @@
         } else if (currentIndex < commits.length - 1) {
           newIndex = currentIndex + 1;
         } else {
+          // At the oldest version loaded so far. Pull more history on demand
+          // instead of forcing a deep scan on every editor open.
+          this._pendingNav = 'back';
+          if (!this._extendHistoryScan()) this._pendingNav = null;
           return;
         }
       } else {
@@ -9498,12 +9686,14 @@
 
       const commits = this._navCommits || [];
       const currentIndex = this._currentIndex;
+      const scanning = this._isScanningCommits;
 
       if (btnBack) {
-        btnBack.disabled = commits.length === 0 || currentIndex >= commits.length - 1;
+        btnBack.disabled =
+          scanning || commits.length === 0 || currentIndex >= commits.length - 1;
       }
       if (btnForward) {
-        btnForward.disabled = currentIndex === -1;
+        btnForward.disabled = scanning || currentIndex === -1;
       }
 
       if (badge) {

@@ -8,7 +8,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [1.18.20] - 2026-11-10
 
 ### Fixed
-- Editor version navigation no longer gets stuck showing Current with both arrows disabled. The history scan flag stayed off during the sequential version fetches, so the 1-second tick started a new scan and aborted the in-flight one before older versions loaded. The scan now holds its in-flight flag until filtering finishes and rescans at most every 15 seconds while empty.
+- Editor version navigation no longer gets stuck on Current with both arrows disabled. The scanner only looked at the newest 25 commits of `automations.yaml` / `scripts.yaml`, but every automation and script shares that file, so most of them had no change in that window. The scanner now walks the commit list in windows until it finds the newest version, loading older versions on demand when you reach the oldest one it knows about.
+- The version bar shows `Loading…` while it searches instead of looking like a dead Current state.
 
 ## [1.18.19] - 2026-11-10
 
