@@ -1,9 +1,5 @@
 # Home Assistant Tweaks
 
-[![Open your Home Assistant instance and open a repository inside the Home Assistant Community Store.](https://my.home-assistant.io/badges/hacs_repository.svg)](https://my.home-assistant.io/redirect/hacs_repository/?owner=saihgupr&repository=HomeAssistantTweaks&category=plugin)
-[![Support on Ko-fi](https://img.shields.io/badge/Ko--fi-F16061?style=flat&logo=ko-fi&logoColor=white)](https://ko-fi.com/saihgupr)
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
-
 Small quality-of-life tweaks for the Home Assistant frontend. Each tweak does one thing: it adds a right-click menu where you expect one, keeps the automation editor tidy, removes the hold-action delay, or lets you drag sidebar items into place.
 
 Press **`T`** anywhere in Home Assistant to open settings. Every toggle applies right away. No YAML edits, no page reload, no server restart.
@@ -65,7 +61,11 @@ Right-click (or long-press) empty space on a dashboard to open a short menu with
 
 ### Quick Start (Marketplace)
 
-1. Click the badge above, or in Home Assistant go to **Settings → Marketplace → Add from link** (on older versions: **Marketplace → Custom repositories**) with category **Plugin**, and enter:
+1. Open the repository directly in Home Assistant:
+
+   [![Open your Home Assistant instance and open a repository inside the Home Assistant Community Store.](https://my.home-assistant.io/badges/hacs_repository.svg)](https://my.home-assistant.io/redirect/hacs_repository/?owner=saihgupr&repository=HomeAssistantTweaks&category=plugin)
+
+   Or add it by hand: in Home Assistant go to **Settings → Marketplace → Add from link** (on older versions: **Marketplace → Custom repositories**) with category **Plugin**, and enter:
    ```text
    https://github.com/saihgupr/HomeAssistantTweaks
    ```
