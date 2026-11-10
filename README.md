@@ -1,4 +1,4 @@
-# Home Assistant Tweaks <img src="assets/icon.png" width="80" align="right" alt="Home Assistant Tweaks" />
+# <sup><img src="assets/icon.png" width="48" height="48" align="middle" alt="Home Assistant Tweaks" /></sup> Home Assistant Tweaks
 
 Small quality-of-life tweaks for the Home Assistant frontend. Each tweak does one thing: it adds a right-click menu where you expect one, keeps the automation editor tidy, removes the hold-action delay, or lets you drag sidebar items into place.
 
@@ -13,10 +13,7 @@ Press **`T`** anywhere in Home Assistant to open settings. Every toggle applies 
 ## Highlights
 
 ### Recover earlier versions of automations and scripts
-The Version Control addon snapshots your config files to Git each time they change. With it installed, the automation and script editors gain version navigation: step back through earlier versions of the one you are editing, preview any version in the editor or as YAML, and bring it back by saving.
-
-> [!NOTE]
-> <sub>Requires the [Home Assistant Version Control](https://github.com/saihgupr/HomeAssistantVersionControl) addon.</sub>
+The Version Control app snapshots your config files to Git each time they change. With it installed, the automation and script editors gain version navigation: step back through earlier versions of the one you are editing, preview any version in the editor or as YAML, and bring it back by saving. Requires the [Home Assistant Version Control](https://github.com/saihgupr/HomeAssistantVersionControl) app.
 
 ![Stepping back through earlier saves in the automation editor](assets/version-history.gif)
 
