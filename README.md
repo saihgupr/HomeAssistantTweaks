@@ -15,7 +15,7 @@ Press **`T`** anywhere in Home Assistant to open settings. Every toggle applies 
 ## Highlights
 
 ### Recover earlier versions of automations and scripts
-The Version Control app snapshots your config files to Git each time they change. With it installed, the automation and script editors gain version navigation: step back through earlier versions of the one you are editing, preview any version in the editor or as YAML, and bring it back by saving. Requires the Home Assistant Version Control app.
+[Home Assistant Version Control](https://github.com/saihgupr/HomeAssistantVersionControl) snapshots your config files to Git each time they change. With it installed, the automation and script editors gain version navigation: step back through earlier versions of the one you are editing, preview any version in the editor or as YAML, and bring it back by saving.
 
 ![Stepping back through earlier saves in the automation editor](assets/version-history.gif)
 
