@@ -45,9 +45,12 @@ Give a chip a `for:` duration and it stays hidden until the entity state has las
 ![Mushroom chips waiting for state duration](assets/mushroom-chips.gif)
 
 ### Context menus where you right-click
-Right-click (or long-press in the Companion App) an automation or script to open Edit or Delete. Works on dashboards, in configuration tables, and in quick search.
+Right-click (or long-press in the Companion App) an automation or script to open Edit or Delete. Works on dashboards, in configuration tables, in quick search, and inside the entity's own popup.
 
 ![Right-click menu open on an automation row showing Edit and Delete](assets/context-menu.gif)
+
+### Context menu in the entity popup
+Open an automation or script's popup and right-click (or long-press) it to get Edit or Delete without leaving the page. It uses the same settings toggle as the dashboard, table, and search menus.
 
 ### Context menu in quick search
 Press `E` (or `Ctrl+K`) and right-click an automation or script result to edit or delete it without leaving the search. Dismissing the menu keeps the results open. It uses the same settings toggle as the dashboard and table menus.

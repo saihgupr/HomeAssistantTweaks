@@ -1,5 +1,5 @@
 /*
- * HA Tweaks v1.19.0 - frontend QoL tweaks for Home Assistant
+ * HA Tweaks v1.19.1 - frontend QoL tweaks for Home Assistant
  * Single-file, zero-dependency frontend plugin for Home Assistant.
  * Load via configuration.yaml:
  *   frontend:
@@ -7,7 +7,7 @@
  *       - /local/ha-tweaks.js
  *
  * Tweaks:
- *   1. Automation + script context menu (right-click + touch long-press, including quick search)
+ *   1. Automation + script context menu (right-click + touch long-press, including quick search and the entity popup)
  *   2. Auto-collapse automation & script editor + Collapse/Expand All toolbar button
  *   3. Dashboard empty-space menu (right-click -> New Automation/Script)
  *   4. Right-click = long press on Lovelace cards, rows, tiles, and badges
@@ -23,7 +23,7 @@
   // wins and the duplicate exits before registering listeners.
   if (window.HATweaks && window.HATweaks._loaded) return;
 
-  const HA_TWEAKS_VERSION = '1.19.0';
+  const HA_TWEAKS_VERSION = '1.19.1';
   const CONFIG_KEY = 'ha_tweaks_config';
   // Pre-1.9.0 keys: read once as fallback so existing users keep their toggles.
   const LEGACY_CONFIG_KEY = 'ha_mods_config';
@@ -771,12 +771,13 @@
 
   /* ================================================================
    * Tweak 1: automation/script right-click + long-press -> Edit + Delete
+   * Surfaces: dashboards, configuration tables, quick search, entity popup.
    * ================================================================ */
   const AutomationContextMenuTweak = {
     id: 'automation-context-menu',
     name: 'Automation + script context menu',
     description:
-      'Right-click (or long-press on touch) an automation or script entity in dashboards, configuration tables, or quick search (E / Ctrl+K). Actions toggleable in settings (T).',
+      'Right-click (or long-press on touch) an automation or script entity in dashboards, configuration tables, quick search (E / Ctrl+K), or its entity popup. Actions toggleable in settings (T).',
     defaultEnabled: true,
     menuItems: [
       { id: 'edit', label: 'Edit' },
@@ -804,9 +805,11 @@
     _menuEl: null,
     _backdropEl: null,
     _menuHostEl: null,
+    _menuTopLayer: false,
     _quickBarEl: null,
     _dialogEl: null,
     _dialogBackdropEl: null,
+    _dialogHostEl: null,
 
     init: function () {
       const self = this;
@@ -997,6 +1000,9 @@
       // Quick search results need a top-layer menu host, since the quick bar
       // is itself a modal dialog.
       const quickBar = quickBarInPath(path);
+      // The entity popup is a modal dialog too, so its menu needs the same
+      // top-layer host or it would render behind the popup.
+      const moreInfo = this._moreInfoInPath(path);
       // Editor rows belong to Tweak 5 (trigger/condition/action row menu):
       // yield so a right-click on an editor row never shows Edit/Delete here.
       try {
@@ -1042,6 +1048,7 @@
       this.closeAll();
       this._showMenu(ev.clientX, ev.clientY, entityId, friendlyName, configId, {
         quickBar: quickBar,
+        topLayer: moreInfo,
       });
       // Background refresh for next time; the open menu used the cache.
       try {
@@ -1062,6 +1069,7 @@
       const path =
         typeof ev.composedPath === 'function' ? ev.composedPath() : [ev.target];
       const quickBar = quickBarInPath(path);
+      const moreInfo = this._moreInfoInPath(path);
       try {
         if (resolveEditorRow(path)) return;
       } catch (e) {
@@ -1074,7 +1082,14 @@
       const x = typeof ev.clientX === 'number' ? ev.clientX : 0;
       const y = typeof ev.clientY === 'number' ? ev.clientY : 0;
       this._lpPointerId = ev.pointerId !== undefined ? ev.pointerId : null;
-      this._lpPending = { entityId: entityId, x: x, y: y, path: path, quickBar: quickBar };
+      this._lpPending = {
+        entityId: entityId,
+        x: x,
+        y: y,
+        path: path,
+        quickBar: quickBar,
+        moreInfo: moreInfo,
+      };
       const self = this;
       this._lpTimer = setTimeout(function () {
         try {
@@ -1137,6 +1152,7 @@
       this.closeAll();
       this._showMenu(pending.x, pending.y, pending.entityId, friendlyName, configId, {
         quickBar: pending.quickBar,
+        topLayer: pending.moreInfo,
       });
       // Background refresh for next time; the open menu used the cache.
       try {
@@ -1299,6 +1315,34 @@
       }
     },
 
+    // The entity popup (more-info dialog) is a modal dialog in the browser's
+    // top layer. It exposes no entity property, but HA mirrors the open popup
+    // into the URL as more-info-entity-id, which works from any page.
+    _moreInfoInPath: function (path) {
+      if (!path || !path.length) return false;
+      for (let i = 0; i < path.length; i++) {
+        const el = path[i];
+        if (!el || typeof el !== 'object') continue;
+        let tag = '';
+        try {
+          tag = ((el.tagName || '') + '').toUpperCase();
+        } catch (e) {
+          tag = '';
+        }
+        if (tag === 'HA-MORE-INFO-DIALOG') return true;
+      }
+      return false;
+    },
+
+    _moreInfoEntityId: function () {
+      try {
+        const id = new URLSearchParams(window.location.search).get('more-info-entity-id');
+        return typeof id === 'string' && id ? id : null;
+      } catch (e) {
+        return null;
+      }
+    },
+
     _resolveEntityId: function (path) {
       if (!path || !path.length) return null;
 
@@ -1321,6 +1365,24 @@
       // through to the native browser menu.
       try {
         if (quickBarInPath(path)) return quickBarEntityIdInPath(path);
+      } catch (e) {
+        // fall through to normal handling
+      }
+
+      // Entity popup: the same menu applies while looking at an automation or
+      // script itself, including its overflow menu. Other domains get null so
+      // their native menu is untouched.
+      try {
+        if (this._moreInfoInPath(path)) {
+          const popupId = this._moreInfoEntityId();
+          if (
+            typeof popupId === 'string' &&
+            (popupId.indexOf('automation.') === 0 || popupId.indexOf('script.') === 0)
+          ) {
+            return popupId;
+          }
+          return null;
+        }
       } catch (e) {
         // fall through to normal handling
       }
@@ -1460,9 +1522,13 @@
       this._menuOpenedAt = Date.now();
       // The quick bar is a modal dialog in the browser's top layer, so a
       // body-level fixed menu would sit behind it. In that case the menu is
-      // hosted inside its own nested modal dialog instead.
+      // hosted inside its own nested modal dialog instead. The entity popup is
+      // a modal dialog too and asks for the same treatment via opts.topLayer.
       this._quickBarEl = opts && opts.quickBar ? opts.quickBar : null;
-      const topLayer = !!this._quickBarEl;
+      const topLayer = !!(opts && (opts.quickBar || opts.topLayer));
+      // Only the entity popup stays open behind the delete confirmation; the
+      // quick bar is closed first, so its confirmation can stay body-level.
+      this._menuTopLayer = !!(opts && opts.topLayer);
 
       // backdrop (the top-layer host doubles as the backdrop)
       if (!topLayer) {
@@ -1816,18 +1882,24 @@
 
     _showDeleteConfirm: function (entityId, friendlyName, configId) {
       const self = this;
+      // The entity popup is a modal dialog, so its confirmation has to live in
+      // a top-layer dialog too or it would render behind the still-open popup.
+      const topLayer = !!this._menuTopLayer;
+      this._menuTopLayer = false;
       // remove menu but keep flow: close menu, open dialog
       this._removeMenuOnly();
 
-      const backdrop = document.createElement('div');
-      backdrop.setAttribute('data-ha-tweaks', 'dialog-backdrop');
-      backdrop.style.cssText =
-        'position:fixed;inset:0;z-index:999998;background:rgba(0,0,0,0.45);margin:0;padding:0;border:0;';
-      backdrop.addEventListener('click', function () {
-        self.closeAll();
-      });
-      document.body.appendChild(backdrop);
-      this._dialogBackdropEl = backdrop;
+      if (!topLayer) {
+        const backdrop = document.createElement('div');
+        backdrop.setAttribute('data-ha-tweaks', 'dialog-backdrop');
+        backdrop.style.cssText =
+          'position:fixed;inset:0;z-index:999998;background:rgba(0,0,0,0.45);margin:0;padding:0;border:0;';
+        backdrop.addEventListener('click', function () {
+          self.closeAll();
+        });
+        document.body.appendChild(backdrop);
+        this._dialogBackdropEl = backdrop;
+      }
 
       const dialog = document.createElement('div');
       dialog.setAttribute('data-ha-tweaks', 'delete-dialog');
@@ -1890,7 +1962,44 @@
       actions.appendChild(confirmBtn);
       dialog.appendChild(actions);
 
-      document.body.appendChild(dialog);
+      if (topLayer) {
+        const host = this._makeTopLayerHost('Delete ' + friendlyName);
+        // The host doubles as the dimmed backdrop, like the body-level one.
+        host.style.background = 'rgba(0,0,0,0.45)';
+        host.addEventListener('click', function (ev) {
+          if (ev.target === host) self.closeAll();
+        });
+        host.addEventListener('cancel', function (ev) {
+          try {
+            ev.preventDefault();
+          } catch (e) {
+            // ignore
+          }
+          if (self._dialogHostEl === host) self.closeAll();
+        });
+        host.addEventListener('close', function () {
+          // Only clean up when the browser closed this dialog on its own; our
+          // own close already detached it.
+          if (self._dialogHostEl === host) self.closeAll();
+        });
+        host.appendChild(dialog);
+        document.body.appendChild(host);
+        this._dialogHostEl = host;
+        try {
+          host.showModal();
+        } catch (e) {
+          // No modal dialog support: fall back to a body-level confirmation.
+          try {
+            if (host.parentNode) host.parentNode.removeChild(host);
+          } catch (err) {
+            // ignore
+          }
+          this._dialogHostEl = null;
+          document.body.appendChild(dialog);
+        }
+      } else {
+        document.body.appendChild(dialog);
+      }
       this._dialogEl = dialog;
       try {
         cancelBtn.focus();
@@ -1985,11 +2094,22 @@
         this._dialogEl.parentNode.removeChild(this._dialogEl);
       }
       this._dialogEl = null;
+      if (this._dialogHostEl) {
+        const host = this._dialogHostEl;
+        this._dialogHostEl = null;
+        try {
+          if (typeof host.close === 'function' && host.open) host.close();
+        } catch (e) {
+          // ignore
+        }
+        if (host.parentNode) host.parentNode.removeChild(host);
+      }
       if (this._dialogBackdropEl && this._dialogBackdropEl.parentNode) {
         this._dialogBackdropEl.parentNode.removeChild(this._dialogBackdropEl);
       }
       this._dialogBackdropEl = null;
       this._quickBarEl = null;
+      this._menuTopLayer = false;
     },
   };
 
