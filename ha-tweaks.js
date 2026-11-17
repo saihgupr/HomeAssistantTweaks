@@ -23,7 +23,7 @@
   // wins and the duplicate exits before registering listeners.
   if (window.HATweaks && window.HATweaks._loaded) return;
 
-  const HA_TWEAKS_VERSION = '1.22.10';
+  const HA_TWEAKS_VERSION = '1.22.14';
   const CONFIG_KEY = 'ha_tweaks_config';
   // Pre-1.9.0 keys: read once as fallback so existing users keep their toggles.
   const LEGACY_CONFIG_KEY = 'ha_mods_config';
@@ -8602,6 +8602,17 @@
         if (this._footerEl) list.appendChild(this._footerEl);
         return;
       }
+      // One rounded card per group. The inset and gap let the list
+      // background show between cards instead of one continuous slab.
+      const cards = document.createElement('div');
+      cards.setAttribute('data-ha-tweaks-cards', '');
+      cards.style.cssText = [
+        'display:flex',
+        'flex-direction:column',
+        'gap:8px',
+        'padding:0 10px 10px 10px',
+        'box-sizing:border-box',
+      ].join(';');
       groups.forEach(function (group) {
         const parent = group.parent;
         // Filtered views list matched rows, so their groups stay open and
@@ -8614,20 +8625,38 @@
         // The chevron only exists when there are child rows to show.
         parent.hasChildren = group.children.length > 0 && !forceOpen;
         parent.expanded = expanded;
-        list.appendChild(self._makeRow(parent));
-        if (!expanded) return;
-        const nested = document.createElement('div');
-        nested.setAttribute('data-ha-tweaks-children', group.parent.id);
-        nested.style.cssText = [
-          'margin-left:32px',
-          'padding-left:16px',
-          'border-left:1px solid var(--ha-color-border-neutral-quiet,var(--divider-color,#e0e0e0))',
+        const card = document.createElement('div');
+        card.setAttribute('data-ha-tweaks-card', parent.id);
+        card.style.cssText = [
+          'background:var(--ha-color-fill-neutral-normal-resting,var(--secondary-background-color,#f5f5f5))',
+          'border-radius:var(--ha-border-radius-lg,14px)',
+          'overflow:hidden',
+          'box-sizing:border-box',
+          'width:100%',
         ].join(';');
-        group.children.forEach(function (child) {
-          nested.appendChild(self._makeRow(child));
-        });
-        list.appendChild(nested);
+        card.appendChild(self._makeRow(parent));
+        if (expanded && group.children.length) {
+          const children = document.createElement('div');
+          children.setAttribute('data-ha-tweaks-children', group.parent.id);
+          children.style.cssText = 'padding:0';
+          // Soft inset rule instead of a border on the card: it starts under
+          // the parent title and stops at the switch column.
+          const divider = document.createElement('div');
+          divider.style.cssText = [
+            'height:1px',
+            'margin:0 14px 0 48px',
+            'background:var(--ha-color-border-neutral-quiet,var(--divider-color,rgba(225,225,225,0.12)))',
+            'opacity:0.6',
+          ].join(';');
+          children.appendChild(divider);
+          group.children.forEach(function (child) {
+            children.appendChild(self._makeRow(child));
+          });
+          card.appendChild(children);
+        }
+        cards.appendChild(card);
       });
+      list.appendChild(cards);
       if (self._footerEl) list.appendChild(self._footerEl);
     },
 
@@ -8731,14 +8760,16 @@
         row.setAttribute('data-ha-tweaks-parent', entry.tweak.id);
       }
       row.title = (enabled ? 'Disable ' : 'Enable ') + entry.title;
+      // Rows sit inside a rounded card and size to their own content. The
+      // icon, title, star, chevron and switch all ride the 18px title line,
+      // so every switch lines up across cards whatever the description does.
       row.style.cssText = [
         'display:flex',
-        'align-items:center',
-        'gap:16px',
+        'align-items:flex-start',
+        'gap:10px',
         'width:100%',
         'box-sizing:border-box',
-        'min-height:64px',
-        isChild ? 'padding:12px 12px 12px 16px' : 'padding:12px 16px',
+        isChild ? 'padding:12px 14px 12px 48px' : 'padding:12px 14px',
         'border:0',
         'background:transparent',
         'color:var(--primary-text-color,#212121)',
@@ -8746,7 +8777,7 @@
         'cursor:pointer',
         'font-family:inherit',
         'outline:none',
-        'position:relative',
+        'transition:background-color 120ms ease-in-out',
       ].join(';');
       row.addEventListener('mousedown', function (ev) {
         // Keep the quick-bar search field focused, like HA's virtual list.
@@ -8767,59 +8798,108 @@
         row.style.background = 'transparent';
       });
 
+      // The icon box is one title line tall, so the icon centres on the
+      // title instead of on the whole two-line text block.
+      const iconBox = document.createElement('div');
+      iconBox.style.cssText =
+        'flex:0 0 auto;display:flex;align-items:center;justify-content:center;' +
+        'width:24px;height:18px;';
       const icon = document.createElement('ha-icon');
       icon.setAttribute('icon', entry.icon);
       icon.style.cssText =
-        'flex:0 0 auto;--mdc-icon-size:24px;margin:4px;' +
+        'flex:0 0 auto;--mdc-icon-size:' + (isChild ? 20 : 24) + 'px;' +
         'color:var(--secondary-text-color,#727272);';
-      row.appendChild(icon);
+      iconBox.appendChild(icon);
+      row.appendChild(iconBox);
 
       const text = document.createElement('div');
       text.style.cssText = 'flex:1 1 auto;min-width:0;';
       const heading = document.createElement('div');
       heading.style.cssText =
-        'display:flex;align-items:baseline;flex-wrap:wrap;' +
-        'gap:2px 8px;min-width:0;';
+        'display:flex;align-items:center;gap:6px;min-width:0;';
       const headline = document.createElement('div');
       headline.textContent = entry.title;
+      // Medium weight makes the title the scan anchor; the description below
+      // stays regular and quiet so long rows read as one line plus a note.
       headline.style.cssText =
-        'font-size:14px;font-weight:400;line-height:1.35;' +
+        'flex:0 1 auto;min-width:0;font-size:14px;font-weight:500;line-height:18px;' +
         'color:var(--primary-text-color,#212121);' +
         'overflow:hidden;text-overflow:ellipsis;white-space:nowrap;';
-      const supporting = document.createElement('div');
-      supporting.textContent = entry.subtitle;
-      supporting.style.cssText = [
-        'margin-top:2px',
-        'font-size:12px',
-        'line-height:1.35',
-        'color:var(--secondary-text-color,#727272)',
-        'display:-webkit-box',
-        '-webkit-line-clamp:2',
-        '-webkit-box-orient:vertical',
-        'overflow:hidden',
-      ].join(';');
+      heading.appendChild(headline);
       if (entry.isNew) {
         const star = document.createElement('ha-icon');
         star.setAttribute('icon', 'mdi:star');
         star.setAttribute('role', 'img');
         star.setAttribute('aria-label', 'New in ' + versionLabel(entry.newIn));
         star.title = 'New in ' + versionLabel(entry.newIn);
-        // Anchored to the row's centre (where the icon sits) and nudged up a
-        // little, so every row lines up even when descriptions wrap.
+        // Sits after the title, so a starred row never shifts the title
+        // column, and always rides the title line.
         star.style.cssText =
-          'position:absolute;left:3px;top:calc(50% - 2.5px);transform:translateY(-50%);' +
-          'pointer-events:none;--mdc-icon-size:14px;width:14px;height:14px;' +
-          'color:var(--warning-color,#ffb300);';
-        row.appendChild(star);
+          'flex:0 0 auto;display:flex;align-items:center;justify-content:center;' +
+          '--mdc-icon-size:14px;width:14px;height:14px;color:var(--warning-color,#ffb300);';
+        heading.appendChild(star);
       }
-      heading.appendChild(headline);
+      if (entry.group === 'tweak' && entry.hasChildren) {
+        row.setAttribute('aria-expanded', entry.expanded ? 'true' : 'false');
+        // An 18px flex block owns the control and the click; the icon is
+        // centred inside it, not laid out inline with the title.
+        const chevronBox = document.createElement('div');
+        chevronBox.setAttribute('role', 'button');
+        chevronBox.setAttribute(
+          'aria-label',
+          (entry.expanded ? 'Collapse ' : 'Expand ') + entry.title
+        );
+        chevronBox.setAttribute('data-ha-tweaks-chevron', entry.id);
+        chevronBox.style.cssText =
+          'flex:0 0 auto;display:flex;align-items:center;justify-content:center;' +
+          'box-sizing:border-box;width:18px;height:18px;' +
+          'color:var(--secondary-text-color,#727272);cursor:pointer;';
+        chevronBox.title = (entry.expanded ? 'Collapse ' : 'Expand ') + entry.title;
+        const chevron = document.createElement('ha-icon');
+        chevron.setAttribute('icon', entry.expanded ? 'mdi:chevron-down' : 'mdi:chevron-right');
+        // The chevron glyph reads low inside its box even when the boxes are
+        // centred, so nudge the glyph itself up a couple of pixels.
+        chevron.style.cssText =
+          'flex:0 0 auto;pointer-events:none;position:relative;top:-2px;' +
+          '--mdc-icon-size:16px;width:16px;height:16px;';
+        chevronBox.appendChild(chevron);
+        chevronBox.addEventListener('click', function (ev) {
+          if (ev) {
+            ev.stopPropagation();
+            ev.preventDefault();
+          }
+          self._expanded[entry.id] = !entry.expanded;
+          self._renderList();
+        });
+        heading.appendChild(chevronBox);
+      }
       text.appendChild(heading);
+
+      const supporting = document.createElement('div');
+      supporting.textContent = entry.subtitle;
+      supporting.style.cssText = [
+        'margin-top:2px',
+        'font-size:12px',
+        'line-height:16px',
+        'color:var(--secondary-text-color,#727272)',
+        'display:-webkit-box',
+        '-webkit-line-clamp:2',
+        '-webkit-box-orient:vertical',
+        'overflow:hidden',
+      ].join(';');
       text.appendChild(supporting);
       if (self._showVcNote(entry)) {
         text.appendChild(self._makeVcNote());
       }
       row.appendChild(text);
 
+      // The control box is one title line tall. The 20px switch overflows it
+      // by a pixel top and bottom, which centres the switch exactly on the
+      // title line on every row, whatever the description length.
+      const controls = document.createElement('div');
+      controls.style.cssText =
+        'flex:0 0 auto;align-self:flex-start;display:flex;align-items:center;' +
+        'justify-content:flex-end;height:18px;';
       const switchVisual = document.createElement('div');
       switchVisual.setAttribute('aria-hidden', 'true');
       switchVisual.style.cssText = [
@@ -8844,32 +8924,8 @@
         'transition:left 120ms ease-in-out',
       ].join(';');
       switchVisual.appendChild(knob);
-      row.appendChild(switchVisual);
-
-      if (entry.group === 'tweak' && entry.hasChildren) {
-        row.setAttribute('aria-expanded', entry.expanded ? 'true' : 'false');
-        const chevron = document.createElement('ha-icon');
-        chevron.setAttribute('icon', entry.expanded ? 'mdi:chevron-down' : 'mdi:chevron-right');
-        chevron.setAttribute('role', 'button');
-        chevron.setAttribute(
-          'aria-label',
-          (entry.expanded ? 'Collapse ' : 'Expand ') + entry.title
-        );
-        chevron.setAttribute('data-ha-tweaks-chevron', entry.id);
-        chevron.style.cssText =
-          'flex:0 0 auto;--mdc-icon-size:20px;margin:0 0 0 2px;' +
-          'color:var(--secondary-text-color,#727272);cursor:pointer;';
-        chevron.title = (entry.expanded ? 'Collapse ' : 'Expand ') + entry.title;
-        chevron.addEventListener('click', function (ev) {
-          if (ev) {
-            ev.stopPropagation();
-            ev.preventDefault();
-          }
-          self._expanded[entry.id] = !entry.expanded;
-          self._renderList();
-        });
-        row.appendChild(chevron);
-      }
+      controls.appendChild(switchVisual);
+      row.appendChild(controls);
 
       function paint() {
         const on = row.getAttribute('aria-checked') === 'true';

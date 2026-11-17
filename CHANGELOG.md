@@ -5,6 +5,27 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.22.14] - 2026-11-17
+
+### Fixed
+- The expand arrow sits a couple of pixels higher, so it reads level with the row title instead of slightly under it.
+
+## [1.22.13] - 2026-11-17
+
+### Fixed
+- Settings cards no longer carry an outline: the card surface alone separates them, and a tweak's sub-items are split off by a soft inset line instead of a full-width border.
+- The expand arrow now sits dead centre with its row title instead of a couple of pixels low.
+
+## [1.22.12] - 2026-11-17
+
+### Changed
+- Settings rows are grouped into one card per tweak. The switch sits at the card's top right, the expand arrow sits beside the title, and a tweak's sub-items stay inside its own card. Every switch still lands on the same column, and long descriptions no longer change how tall a row's neighbours are.
+
+## [1.22.11] - 2026-11-17
+
+### Changed
+- Settings rows now share one fixed layout: every row is the same height and its switch sits on the title line, so the switches form a single column whether a description runs one line or two. The expand arrow moved into a reserved right-hand gutter, so it no longer nudges the switch sideways, and titles are a touch heavier than their descriptions.
+
 ## [1.22.10] - 2026-11-17
 
 ### Fixed

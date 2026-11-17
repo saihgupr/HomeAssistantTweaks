@@ -12,11 +12,13 @@ Press **`T`** anywhere in Home Assistant to open settings. Every toggle applies 
 
 ---
 
-## What's new in 1.22.10
+## What's new in 1.22.14
 
 - **Your names back on cards.** Home Assistant 2026.11 builds card titles from parts, so an entity you renamed shows as the device name plus your name: "Extra Speaker Desk Speaker" for an entity called "Desk Speaker". The new **Card names: use the name you set** switch drops the device prefix and shows the name you typed. Cards with a name of their own are left alone.
 - **A star for what's new.** Rows added in the current or previous release carry a small yellow star, so recent additions stand out in settings (`T`).
 - **Better filters.** Settings now has **New**, **On**, and **Off** filters beside **All** and **Tweaks**, so you can jump straight to recent additions, what is running, or what is switched off.
+- **Straight rows.** Every settings row is the same height with its switch on the title line, so the toggles line up in one clean column however long the description runs.
+- **One card per tweak.** Each tweak now sits in its own card with the switch at the top right and its sub-items kept inside, so the settings list reads as separate items instead of one long slab.
 
 ---
 
