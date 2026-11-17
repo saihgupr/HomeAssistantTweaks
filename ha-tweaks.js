@@ -801,7 +801,6 @@
       // { id: 'traces', label: 'View traces' },
       // { id: 'copy', label: 'Copy entity ID' },
       { id: 'delete', label: 'Delete' },
-      { id: 'arrow-actions', label: 'Arrow keys in search and popup' },
     ],
 
     _onContextMenu: null,
@@ -2180,12 +2179,22 @@
       } catch (e) {
         return;
       }
-      if (!this._isItemEnabled('arrow-actions')) return;
+      if (!this._arrowsOn()) return;
       if (quickBar) {
         this._handleQuickBarArrow(ev, quickBar, path);
         return;
       }
       if (this._moreInfoInPath(path)) this._handleMoreInfoArrow(ev, path);
+    },
+
+    // Left deletes, right edits, on both surfaces. The switch lives on its own
+    // settings row, so the keys can go without losing the menu.
+    _arrowsOn: function () {
+      try {
+        return isTweakEnabled(ArrowKeysTweak);
+      } catch (e) {
+        return false;
+      }
     },
 
     // Left deletes, right edits, on both surfaces.
@@ -2367,7 +2376,7 @@
           this._clearQuickBarHint();
           return;
         }
-        const arrowsOn = this._isItemEnabled('arrow-actions');
+        const arrowsOn = this._arrowsOn();
         const editOn = arrowsOn && this._isItemEnabled('edit');
         const deleteOn = arrowsOn && this._isItemEnabled('delete');
         if (!editOn && !deleteOn) {
@@ -2532,6 +2541,22 @@
       this._menuTopLayer = false;
       this._clearQuickBarHint();
     },
+  };
+
+  /* ================================================================
+   * Arrow key shortcuts: settings entry only.
+   * The keys themselves are handled by the automation + script context
+   * menu tweak, which owns the Edit and Delete actions. This entry gives
+   * them their own switch, so they can be turned off on their own.
+   * ================================================================ */
+  const ArrowKeysTweak = {
+    id: 'arrow-keys',
+    name: 'Arrow keys in search and popup',
+    description: 'Menu item in Automation + script context menu',
+    defaultEnabled: true,
+    init: function () {},
+    destroy: function () {},
+    onNavigate: function () {},
   };
 
   /* ================================================================
@@ -7803,6 +7828,7 @@
     'chip-active-for': 'mdi:mushroom',
     'sidebar-drag': 'mdi:drag',
     'marketplace-sidebar': 'mdi:store',
+    'arrow-keys': 'mdi:keyboard-outline',
   };
 
   const MENU_ITEM_ICONS = {
@@ -7817,7 +7843,6 @@
     run: 'mdi:play',
     'new-automation': 'mdi:robot',
     'new-script': 'mdi:script-text',
-    'arrow-actions': 'mdi:keyboard-outline',
   };
 
   const VC_ADDON_REPO_URL =
@@ -7833,6 +7858,7 @@
     _onKeyDown: null,
     _query: '',
     _section: 'all',
+    _expanded: {},
     _vcInstalled: null,
     _vcCheckInFlight: false,
 
@@ -7846,6 +7872,7 @@
       this._open = true;
       this._query = '';
       this._section = 'all';
+      this._expanded = {};
       const self = this;
 
       const backdrop = document.createElement('div');
@@ -8241,6 +8268,14 @@
       this._renderList();
     },
 
+    // Parent rows with child toggles start collapsed. A search always shows
+    // the rows that matched, so groups open while a query is typed.
+    _isGroupExpanded: function (entry, childCount) {
+      if (!childCount) return false;
+      if (this._terms().length) return true;
+      return !!this._expanded[entry.id];
+    },
+
     _renderChips: function () {
       const chips = this._chipsEl;
       if (!chips) return;
@@ -8283,8 +8318,13 @@
         return;
       }
       groups.forEach(function (group) {
-        list.appendChild(self._makeRow(group.parent));
-        if (!group.children.length) return;
+        const parent = group.parent;
+        const expanded = self._isGroupExpanded(parent, group.children.length);
+        // The chevron only exists when there are child rows to show.
+        parent.hasChildren = group.children.length > 0;
+        parent.expanded = expanded;
+        list.appendChild(self._makeRow(parent));
+        if (!expanded) return;
         const nested = document.createElement('div');
         nested.setAttribute('data-ha-tweaks-children', group.parent.id);
         nested.style.cssText = [
@@ -8500,6 +8540,31 @@
       switchVisual.appendChild(knob);
       row.appendChild(switchVisual);
 
+      if (entry.group === 'tweak' && entry.hasChildren) {
+        row.setAttribute('aria-expanded', entry.expanded ? 'true' : 'false');
+        const chevron = document.createElement('ha-icon');
+        chevron.setAttribute('icon', entry.expanded ? 'mdi:chevron-down' : 'mdi:chevron-right');
+        chevron.setAttribute('role', 'button');
+        chevron.setAttribute(
+          'aria-label',
+          (entry.expanded ? 'Collapse ' : 'Expand ') + entry.title
+        );
+        chevron.setAttribute('data-ha-tweaks-chevron', entry.id);
+        chevron.style.cssText =
+          'flex:0 0 auto;--mdc-icon-size:20px;margin:0 0 0 2px;' +
+          'color:var(--secondary-text-color,#727272);cursor:pointer;';
+        chevron.title = (entry.expanded ? 'Collapse ' : 'Expand ') + entry.title;
+        chevron.addEventListener('click', function (ev) {
+          if (ev) {
+            ev.stopPropagation();
+            ev.preventDefault();
+          }
+          self._expanded[entry.id] = !entry.expanded;
+          self._renderList();
+        });
+        row.appendChild(chevron);
+      }
+
       function paint() {
         const on = row.getAttribute('aria-checked') === 'true';
         switchVisual.style.background = on
@@ -8540,7 +8605,11 @@
         // Keep data in sync with what is painted; no focus is moved.
         entry.enabled = next;
         if (entry.group === 'tweak') {
-          // Child rows are derived from the parent switch; rebuild the list.
+          // Toggling a parent shows what it turned on or off, so open its
+          // group; then rebuild the list from the new state.
+          self._expanded[entry.tweak.id] = true;
+          self._renderList();
+        } else if (entry.tweak) {
           self._renderList();
         }
       });
@@ -11565,6 +11634,7 @@
 
   /* ---------- boot ---------- */
   TweakRegistry.register(AutomationContextMenuTweak);
+  TweakRegistry.register(ArrowKeysTweak);
   TweakRegistry.register(EditorRowContextMenuTweak);
   TweakRegistry.register(AutoCollapseEditorTweak);
   TweakRegistry.register(InlineTitleRenameTweak);

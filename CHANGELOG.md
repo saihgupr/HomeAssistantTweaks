@@ -9,7 +9,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 - Quick search and the automation or script entity popup answer to the arrow keys. Left arrow deletes, right arrow opens it in the editor, and deleting still asks for confirmation. In quick search a small hint under the results shows both keys while an automation or script row is highlighted.
-- A new **Arrow keys in search and popup** switch in settings (`T`) turns the arrow shortcuts off on their own, and they also follow the existing Edit and Delete switches.
+- A new **Arrow keys in search and popup** row in settings (`T`) turns the arrow shortcuts off on their own, and they also follow the existing Edit and Delete switches. It sits at the top level of the panel rather than inside the context menu group.
+- Settings rows that have child toggles start collapsed, open when you switch their tweak on, and have a chevron to open or close them by hand. Searching still shows every matching row.
 
 ## [1.19.1] - 2026-11-16
 
