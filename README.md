@@ -50,10 +50,10 @@ Right-click (or long-press in the Companion App) an automation or script to open
 ![Right-click menu open on an automation row showing Edit and Delete](assets/context-menu.gif)
 
 ### Context menu in the entity popup
-Open an automation or script's popup and right-click (or long-press) it to get Edit or Delete without leaving the page. It uses the same settings toggle as the dashboard, table, and search menus.
+Open an automation or script's popup and right-click (or long-press) it to get Edit or Delete without leaving the page. The left arrow deletes and the right arrow opens the editor. It uses the same settings toggle as the dashboard, table, and search menus.
 
 ### Context menu in quick search
-Press `E` (or `Ctrl+K`) and right-click an automation or script result to edit or delete it without leaving the search. With a result highlighted, the left arrow edits and the right arrow deletes, and a hint under the results shows both keys. Dismissing the menu keeps the results open. It uses the same settings toggle as the dashboard and table menus.
+Press `E` (or `Ctrl+K`) and right-click an automation or script result to edit or delete it without leaving the search. With a result highlighted, the left arrow deletes and the right arrow edits, and a hint under the results shows both keys. Dismissing the menu keeps the results open. It uses the same settings toggle as the dashboard and table menus.
 
 ### Copy, cut, or duplicate editor rows
 Right-click any trigger, condition, or action row inside the editor to copy, cut, or duplicate it.

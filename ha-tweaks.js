@@ -1,5 +1,5 @@
 /*
- * HA Tweaks v1.20.0 - frontend QoL tweaks for Home Assistant
+ * HA Tweaks v1.21.0 - frontend QoL tweaks for Home Assistant
  * Single-file, zero-dependency frontend plugin for Home Assistant.
  * Load via configuration.yaml:
  *   frontend:
@@ -23,7 +23,7 @@
   // wins and the duplicate exits before registering listeners.
   if (window.HATweaks && window.HATweaks._loaded) return;
 
-  const HA_TWEAKS_VERSION = '1.20.0';
+  const HA_TWEAKS_VERSION = '1.21.0';
   const CONFIG_KEY = 'ha_tweaks_config';
   // Pre-1.9.0 keys: read once as fallback so existing users keep their toggles.
   const LEGACY_CONFIG_KEY = 'ha_mods_config';
@@ -792,7 +792,7 @@
     id: 'automation-context-menu',
     name: 'Automation + script context menu',
     description:
-      'Right-click (or long-press on touch) an automation or script entity in dashboards, configuration tables, quick search (E / Ctrl+K), or its entity popup. In quick search, left arrow edits and right arrow deletes the highlighted result. Actions toggleable in settings (T).',
+      'Right-click (or long-press on touch) an automation or script entity in dashboards, configuration tables, quick search (E / Ctrl+K), or its entity popup. In quick search, left arrow deletes and right arrow edits the highlighted result. Actions toggleable in settings (T).',
     defaultEnabled: true,
     menuItems: [
       { id: 'edit', label: 'Edit' },
@@ -801,6 +801,7 @@
       // { id: 'traces', label: 'View traces' },
       // { id: 'copy', label: 'Copy entity ID' },
       { id: 'delete', label: 'Delete' },
+      { id: 'arrow-actions', label: 'Arrow keys in search and popup' },
     ],
 
     _onContextMenu: null,
@@ -2004,7 +2005,7 @@
 
       const actions = document.createElement('div');
       actions.style.cssText =
-        'display:flex;justify-content:flex-end;gap:8px;padding:12px 16px;border-top:1px solid var(--divider-color,#e0e0e0);';
+        'display:flex;justify-content:flex-end;gap:8px;padding:12px 16px;';
 
       const cancelBtn = document.createElement('button');
       cancelBtn.type = 'button';
@@ -2157,12 +2158,13 @@
       const path =
         typeof ev.composedPath === 'function' ? ev.composedPath() : [ev.target];
       const quickBar = quickBarInPath(path);
-      if (!quickBar) return;
-      if (quickBar !== this._quickBarSessionEl) this._attachQuickBarSession(quickBar);
       // Up/Down/Home/End/typing change what is highlighted: refresh the hint
       // after HA has moved the highlight.
       if (ev.key !== 'ArrowLeft' && ev.key !== 'ArrowRight') {
-        this._scheduleQuickBarHint();
+        if (quickBar) {
+          if (quickBar !== this._quickBarSessionEl) this._attachQuickBarSession(quickBar);
+          this._scheduleQuickBarHint();
+        }
         return;
       }
       if (ev.ctrlKey || ev.metaKey || ev.altKey) return;
@@ -2178,30 +2180,40 @@
       } catch (e) {
         return;
       }
-      const itemId = ev.key === 'ArrowLeft' ? 'edit' : 'delete';
+      if (!this._isItemEnabled('arrow-actions')) return;
+      if (quickBar) {
+        this._handleQuickBarArrow(ev, quickBar, path);
+        return;
+      }
+      if (this._moreInfoInPath(path)) this._handleMoreInfoArrow(ev, path);
+    },
+
+    // Left deletes, right edits, on both surfaces.
+    _arrowItemId: function (ev) {
+      return ev.key === 'ArrowLeft' ? 'delete' : 'edit';
+    },
+
+    _handleQuickBarArrow: function (ev, quickBar, path) {
+      const itemId = this._arrowItemId(ev);
       if (!this._isItemEnabled(itemId)) return;
       const entityId = this._quickBarActiveId(quickBar);
       if (!entityId) return;
       const hass = getHass();
       if (!hass) return;
-      try {
-        if (ev.cancelable) ev.preventDefault();
-        ev.stopPropagation();
-      } catch (e) {
-        // ignore
-      }
       const stateObj = hass.states ? hass.states[entityId] : undefined;
       const configId = this._configIdFor(hass, entityId, stateObj, path);
       const friendlyName =
         (stateObj && stateObj.attributes && stateObj.attributes.friendly_name) || entityId;
       if (!configId) {
         // Keep the results open: there is nothing to edit or delete.
-        toast(
-          'This entry has no UI id, cannot ' +
-            (itemId === 'edit' ? 'edit' : 'delete') +
-            ' from the UI'
-        );
+        toast('This entry has no UI id, cannot ' + itemId + ' from the UI');
         return;
+      }
+      try {
+        if (ev.cancelable) ev.preventDefault();
+        ev.stopPropagation();
+      } catch (e) {
+        // ignore
       }
       this._clearQuickBarHint();
       this._closeQuickBar(quickBar);
@@ -2212,6 +2224,47 @@
         // Same confirmation the context menu uses; nothing deletes silently.
         this._showDeleteConfirm(entityId, friendlyName, configId);
       }
+    },
+
+    // The entity popup is a modal dialog, so it is closed before the editor
+    // opens or the confirmation appears.
+    _handleMoreInfoArrow: function (ev, path) {
+      const entityId = this._moreInfoEntityId();
+      if (
+        typeof entityId !== 'string' ||
+        (entityId.indexOf('automation.') !== 0 && entityId.indexOf('script.') !== 0)
+      ) {
+        return;
+      }
+      const itemId = this._arrowItemId(ev);
+      if (!this._isItemEnabled(itemId)) return;
+      const hass = getHass();
+      if (!hass) return;
+      const stateObj = hass.states ? hass.states[entityId] : undefined;
+      const configId = this._configIdFor(hass, entityId, stateObj, path);
+      if (!configId) {
+        toast('This entry has no UI id, cannot ' + itemId + ' from the UI');
+        return;
+      }
+      const friendlyName =
+        (stateObj && stateObj.attributes && stateObj.attributes.friendly_name) || entityId;
+      try {
+        if (ev.cancelable) ev.preventDefault();
+        ev.stopPropagation();
+      } catch (e) {
+        // ignore
+      }
+      // The popup stays where it is: the confirmation lives in the top layer
+      // above it, so closing it would only add a navigation race.
+      this.closeAll();
+      if (itemId === 'edit') {
+        this._openEditor(entityId, configId);
+        return;
+      }
+      // The popup may take a frame to leave the top layer; host the
+      // confirmation there too so it can never open underneath it.
+      this._menuTopLayer = true;
+      this._showDeleteConfirm(entityId, friendlyName, configId);
     },
 
     // Edit action shared by the context menu and the arrow keys. Navigates in
@@ -2314,8 +2367,9 @@
           this._clearQuickBarHint();
           return;
         }
-        const editOn = this._isItemEnabled('edit');
-        const deleteOn = this._isItemEnabled('delete');
+        const arrowsOn = this._isItemEnabled('arrow-actions');
+        const editOn = arrowsOn && this._isItemEnabled('edit');
+        const deleteOn = arrowsOn && this._isItemEnabled('delete');
         if (!editOn && !deleteOn) {
           this._clearQuickBarHint();
           return;
@@ -2337,10 +2391,10 @@
           return;
         }
         strip.textContent = '';
-        if (editOn) strip.appendChild(this._makeQuickHintPart('mdi:pencil', '←', 'Edit'));
         if (deleteOn) {
-          strip.appendChild(this._makeQuickHintPart('mdi:delete-outline', '→', 'Delete'));
+          strip.appendChild(this._makeQuickHintPart('mdi:delete-outline', '←', 'Delete'));
         }
+        if (editOn) strip.appendChild(this._makeQuickHintPart('mdi:pencil', '→', 'Edit'));
         strip.style.display = 'flex';
       } catch (e) {
         // ignore
@@ -7763,6 +7817,7 @@
     run: 'mdi:play',
     'new-automation': 'mdi:robot',
     'new-script': 'mdi:script-text',
+    'arrow-actions': 'mdi:keyboard-outline',
   };
 
   const VC_ADDON_REPO_URL =
