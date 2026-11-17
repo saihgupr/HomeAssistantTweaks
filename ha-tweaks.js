@@ -23,7 +23,7 @@
   // wins and the duplicate exits before registering listeners.
   if (window.HATweaks && window.HATweaks._loaded) return;
 
-  const HA_TWEAKS_VERSION = '1.22.19';
+  const HA_TWEAKS_VERSION = '1.22.21';
   const CONFIG_KEY = 'ha_tweaks_config';
   // Pre-1.9.0 keys: read once as fallback so existing users keep their toggles.
   const LEGACY_CONFIG_KEY = 'ha_mods_config';
@@ -8486,7 +8486,10 @@
           const children = group.children;
 
           if (section === 'tweak') {
-            return parentMatches ? { parent, children: [] } : null;
+            // Every tweak is listed, and the sub-items stay attached so the
+            // group can be opened from here too. They start folded, like the
+            // All view, so this reads as "tweaks only".
+            return parentMatches ? { parent, children } : null;
           }
 
           // New: only starred rows. A new parent stands on its own; an older
@@ -8618,15 +8621,12 @@
       ].join(';');
       groups.forEach(function (group) {
         const parent = group.parent;
-        // Filtered views list matched rows, so their groups stay open and
-        // carry no chevron to collapse them.
-        const forceOpen = self._section !== 'all';
-        const expanded =
-          forceOpen && group.children.length > 0
-            ? true
-            : self._isGroupExpanded(parent, group.children.length);
-        // The chevron only exists when there are child rows to show.
-        parent.hasChildren = group.children.length > 0 && !forceOpen;
+        // Every section uses one expansion model: a group with child rows
+        // shows an arrow and starts folded, and the same folded state is
+        // shared across All, Tweaks, New, On and Off.
+        const hasKids = group.children.length > 0;
+        const expanded = self._isGroupExpanded(parent, group.children.length);
+        parent.hasChildren = hasKids;
         parent.expanded = expanded;
         const card = document.createElement('div');
         card.setAttribute('data-ha-tweaks-card', parent.id);

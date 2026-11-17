@@ -5,6 +5,16 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.22.21] - 2026-11-17
+
+### Changed
+- Every settings section now behaves like **All**: a tweak with sub-items shows its expand arrow and starts folded, and the open or closed state is shared across **All**, **Tweaks**, **New**, **On** and **Off**. **Tweaks** keeps each tweak's sub-items attached so they can be opened from there too.
+
+## [1.22.20] - 2026-11-17
+
+### Fixed
+- The expand arrow is back in the New, On and Off views. Those views still open every group so the matching rows show, but each group can now be folded away and opened again, and typing a search reopens whatever was folded. Folding in a filtered view does not change what the All list shows.
+
 ## [1.22.19] - 2026-11-17
 
 ### Changed
