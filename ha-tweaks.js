@@ -23,7 +23,7 @@
   // wins and the duplicate exits before registering listeners.
   if (window.HATweaks && window.HATweaks._loaded) return;
 
-  const HA_TWEAKS_VERSION = '1.22.21';
+  const HA_TWEAKS_VERSION = '1.22.22';
   const CONFIG_KEY = 'ha_tweaks_config';
   // Pre-1.9.0 keys: read once as fallback so existing users keep their toggles.
   const LEGACY_CONFIG_KEY = 'ha_mods_config';
@@ -792,7 +792,7 @@
     id: 'automation-context-menu',
     name: 'Automation + script context menu',
     description:
-      'Right-click (or long-press on touch) an automation or script entity in dashboards, configuration tables, quick search (E / Ctrl+K), or its entity popup. In quick search, left arrow deletes and right arrow edits the highlighted result. Actions toggleable in settings (T).',
+      'Right-click or long-press an automation or script for Edit and Delete.',
     defaultEnabled: true,
     menuItems: [
       { id: 'edit', label: 'Edit' },
@@ -2552,7 +2552,7 @@
   const ArrowKeysTweak = {
     id: 'arrow-keys',
     name: 'Arrow keys in search and popup',
-    description: 'Menu item in Automation + script context menu',
+    description: 'Part of the automation context menu.',
     newIn: '1.21.0',
     defaultEnabled: true,
     init: function () {},
@@ -2666,7 +2666,7 @@
     id: 'editor-row-context-menu',
     name: 'Editor row context menu',
     description:
-      'Right-click (or long-press on touch) a trigger, condition, or action row inside the automation/script editor for Duplicate, Copy, Cut, YAML toggle, Disable, Run, and Delete.',
+      'Right-click a trigger, condition, or action row for its own menu.',
     defaultEnabled: true,
     menuItems: [
       { id: 'duplicate', label: 'Duplicate' },
@@ -4723,7 +4723,7 @@
     id: 'dashboard-empty-menu',
     name: 'Dashboard empty-space menu',
     description:
-      'Right-click (or long-press on touch) empty dashboard space for New Automation / New Script. Each item toggleable in settings (T).',
+      'Right-click empty dashboard space for New Automation or New Script.',
     defaultEnabled: true,
     menuItems: [
       { id: 'new-automation', label: 'New Automation' },
@@ -5265,7 +5265,7 @@
     id: 'auto-collapse-editor',
     name: 'Auto-collapse editor',
     description:
-      'Open automation and script editors with building blocks collapsed (including after YAML-to-UI switches), plus a Collapse All / Expand All button in the toolbar.',
+      'Open editors with every block collapsed, plus a Collapse All button.',
     defaultEnabled: true,
 
     _activePath: null,
@@ -5827,7 +5827,7 @@
     id: 'inline-title-rename',
     name: 'Rename by clicking the title',
     description:
-      'Click the automation or script name in the editor header to edit it in place. The editor and Save button update as you type, Enter or blur commits, and Escape cancels.',
+      'Click the editor title to rename in place. Enter saves, Escape cancels.',
     defaultEnabled: true,
 
     _onClick: null,
@@ -6241,7 +6241,7 @@
     id: 'right-click-hold',
     name: 'Right-click = long press',
     description:
-      'Right-click a card, entity row, tile, or badge in Lovelace to trigger its hold action, usually more-info for that entity. Touch behavior is unchanged.',
+      'Right-click a card, row, tile, or badge to run its hold action.',
     defaultEnabled: true,
 
     _onContextMenu: null,
@@ -6727,7 +6727,7 @@
     id: 'chip-active-for',
     name: 'Chips: show after active for',
     description:
-      'Hide Mushroom chips until their entity has held a state for a duration (per-chip `for:`). Chips without a duration key are untouched.',
+      'Hide Mushroom chips until their entity has held a state long enough.',
     defaultEnabled: true,
 
     _chipSelector:
@@ -7196,7 +7196,7 @@
     name: 'Card names: use the name you set',
     newIn: '1.22.0',
     description:
-      'Home Assistant 2026.11 puts the device name in front of card titles, so an entity you renamed shows as "Extra Speaker Desk Speaker". This shows the name you typed on its own. Cards with a name of their own are left alone.',
+      'Shows the name you typed, without the device name in front of it.',
     defaultEnabled: true,
 
     _el: null,
@@ -7368,7 +7368,7 @@
     id: 'sidebar-drag',
     name: 'Drag to reorder sidebar',
     description:
-      'Hold and drag sidebar items to rearrange them. Saves to Home Assistant\u2019s sidebar order, so it syncs across devices and matches Edit sidebar.',
+      'Hold and drag sidebar items to reorder them.',
     defaultEnabled: true,
 
     _onPointerDown: null,
@@ -9506,7 +9506,7 @@
     id: 'marketplace-sidebar',
     name: 'Marketplace in sidebar',
     description:
-      'Adds a Marketplace shortcut to the main sidebar. Opens /marketplace in the same tab. Admins only.',
+      'Adds a Marketplace shortcut to the sidebar. Admins only.',
     defaultEnabled: false,
 
     _item: null,
@@ -9818,7 +9818,7 @@
     id: 'editor-version-history',
     name: 'Version history in editors',
     description:
-      'Show Version Control history inside the native automation/script editor with date/arrows navigation and restore on save.',
+      'Browse and restore Version Control history inside the editor.',
     defaultEnabled: false,
 
     _activePath: null,
