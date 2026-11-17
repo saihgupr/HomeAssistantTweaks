@@ -23,7 +23,7 @@
   // wins and the duplicate exits before registering listeners.
   if (window.HATweaks && window.HATweaks._loaded) return;
 
-  const HA_TWEAKS_VERSION = '1.22.17';
+  const HA_TWEAKS_VERSION = '1.22.18';
   const CONFIG_KEY = 'ha_tweaks_config';
   // Pre-1.9.0 keys: read once as fallback so existing users keep their toggles.
   const LEGACY_CONFIG_KEY = 'ha_mods_config';
@@ -8125,9 +8125,9 @@
       dialog.setAttribute('role', 'dialog');
       dialog.setAttribute('aria-modal', 'true');
       dialog.setAttribute('aria-labelledby', 'ha-tweaks-title');
-      // Height follows the filtered content. The 340px floor stops a
-      // one-card result collapsing into a strip; the cap keeps 40px above
-      // and below the dialog, and the list is the only part that scrolls.
+      // Height follows the filtered content with no floor: a two-card or an
+      // empty result closes up to just its rows, and the cap keeps 40px above
+      // and below the dialog while the list does any scrolling.
       dialog.style.cssText = [
         'position:fixed',
         'z-index:999999',
@@ -8136,7 +8136,7 @@
         'transform:translateX(-50%)',
         'width:min(580px,95vw)',
         'height:auto',
-        'min-height:min(340px,calc(100dvh - 80px))',
+        'min-height:0',
         'max-height:calc(100dvh - 80px)',
         'display:flex',
         'flex-direction:column',

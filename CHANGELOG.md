@@ -5,6 +5,11 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.22.18] - 2026-11-17
+
+### Fixed
+- The settings panel has no minimum height any more, so an empty search result closes up to its message instead of leaving a block of space below it.
+
 ## [1.22.17] - 2026-11-17
 
 ### Changed
