@@ -23,7 +23,7 @@
   // wins and the duplicate exits before registering listeners.
   if (window.HATweaks && window.HATweaks._loaded) return;
 
-  const HA_TWEAKS_VERSION = '1.21.0';
+  const HA_TWEAKS_VERSION = '1.22.0';
   const CONFIG_KEY = 'ha_tweaks_config';
   // Pre-1.9.0 keys: read once as fallback so existing users keep their toggles.
   const LEGACY_CONFIG_KEY = 'ha_mods_config';
@@ -7154,6 +7154,197 @@
   };
 
   /* ================================================================
+   * Tweak: use the entity name you set on cards
+   * - Home Assistant 2026.11 builds card titles from parts: the device
+   *   name in front of the entity name. So renaming an entity to
+   *   "Desk Speaker" on the device "Extra Speaker" shows
+   *   "Extra Speaker Desk Speaker" on its card.
+   * - Every card that follows the new naming (built-in tile and media
+   *   cards, Mushroom cards) calls hass.formatEntityName for its title,
+   *   so that one function is the whole surface to patch. When the card
+   *   has no name of its own and the entity has a name you typed, return
+   *   that name on its own. Cards with their own name are untouched.
+   * - hass is rebuilt as a new object on every state update
+   *   ({ ...this.hass, ...obj }), so arming one object does not last.
+   *   The home-assistant element's `hass` setter is wrapped once instead,
+   *   and arms each new hass object as it arrives. No observers, no DOM
+   *   rewriting, and nothing runs per render beyond two lookups.
+   * ================================================================ */
+  const CARD_ENTITY_NAME_ID = 'entity-name-on-cards';
+
+  // The name to show instead of HA's composed one, or null to let HA
+  // handle it. Only entities that already have a name the user typed.
+  function preferredEntityName(hass, stateObj, name) {
+    try {
+      // A card with a name of its own (typed, or picked parts) keeps it.
+      if (name !== undefined && name !== null) return null;
+      const entityId = stateObj && (stateObj.entity_id || stateObj.entityId);
+      if (!entityId) return null;
+      const entities = hass && hass.entities;
+      const entry = entities && entities[entityId];
+      if (!entry) return null;
+      const custom = typeof entry.name === 'string' ? entry.name.trim() : '';
+      return custom || null;
+    } catch (e) {
+      return null;
+    }
+  }
+
+  const CardEntityNameTweak = {
+    id: CARD_ENTITY_NAME_ID,
+    name: 'Card names: use the name you set',
+    description:
+      'Home Assistant 2026.11 puts the device name in front of card titles, so an entity you renamed shows as "Extra Speaker Desk Speaker". This shows the name you typed on its own. Cards with a name of their own are left alone.',
+    defaultEnabled: true,
+
+    _el: null,
+    _proto: null,
+    _descriptor: null,
+    _origGet: null,
+    _origSet: null,
+    _timer: null,
+
+    init: function () {
+      this._patchElement();
+      this._armCurrent();
+      const self = this;
+      try {
+        this._timer = setInterval(function () {
+          try {
+            self._patchElement();
+            self._armCurrent();
+          } catch (e) {
+            // ignore
+          }
+        }, 2000);
+      } catch (e) {
+        this._timer = null;
+      }
+    },
+
+    destroy: function () {
+      try {
+        if (this._timer) clearInterval(this._timer);
+      } catch (e) {
+        // ignore
+      }
+      this._timer = null;
+      try {
+        if (this._proto && this._origGet && this._origSet) {
+          Object.defineProperty(this._proto, 'hass', {
+            configurable: true,
+            enumerable: this._descriptor ? this._descriptor.enumerable : true,
+            get: this._origGet,
+            set: this._origSet,
+          });
+        }
+      } catch (e) {
+        // ignore
+      }
+      this._el = null;
+      this._proto = null;
+      this._descriptor = null;
+      this._origGet = null;
+      this._origSet = null;
+      // Put the normal function back on the live hass object.
+      try {
+        const hass = getHass();
+        const fn = hass && hass.formatEntityName;
+        if (fn && fn.__haTweaksCardName) hass.formatEntityName = fn.__haTweaksCardNameRaw;
+      } catch (e) {
+        // ignore
+      }
+    },
+
+    // Wrap the element's `hass` setter so every hass object HA builds is
+    // armed before any card sees it. The accessor lives on a superclass
+    // prototype (Lit's @property), so walk up until it is found.
+    _patchElement: function () {
+      const el = getHomeAssistant();
+      if (!el) return;
+      if (el === this._el && this._proto) return;
+      let proto = Object.getPrototypeOf(el);
+      let descriptor = null;
+      while (proto) {
+        descriptor = Object.getOwnPropertyDescriptor(proto, 'hass');
+        if (descriptor) break;
+        proto = Object.getPrototypeOf(proto);
+      }
+      if (
+        !descriptor ||
+        typeof descriptor.get !== 'function' ||
+        typeof descriptor.set !== 'function'
+      ) {
+        return;
+      }
+      const self = this;
+      const origGet = descriptor.get;
+      const origSet = descriptor.set;
+      try {
+        Object.defineProperty(proto, 'hass', {
+          configurable: true,
+          enumerable: descriptor.enumerable,
+          get: function () {
+            return origGet.call(this);
+          },
+          set: function (value) {
+            // Only the root element creates hass objects; leave any other
+            // element's hass alone.
+            const isRoot = this && this.tagName === 'HOME-ASSISTANT';
+            origSet.call(this, isRoot ? self._arm(value) : value);
+          },
+        });
+      } catch (e) {
+        return;
+      }
+      this._el = el;
+      this._proto = proto;
+      this._descriptor = descriptor;
+      this._origGet = origGet;
+      this._origSet = origSet;
+    },
+
+    _armCurrent: function () {
+      this._arm(getHass());
+    },
+
+    _arm: function (hass) {
+      try {
+        if (!hass || typeof hass !== 'object') return hass;
+        const fn = hass.formatEntityName;
+        if (typeof fn !== 'function') return hass;
+        const ours = !!fn.__haTweaksCardName;
+        // Already armed for this exact object: nothing to do. That keeps the
+        // 2s safety tick from churning the function every time.
+        if (ours && fn.__haTweaksCardNameHass === hass) return hass;
+        // Spread carried the previous wrapper into the new hass object;
+        // rebuild around the real function so it reads the new registries.
+        const raw = ours ? fn.__haTweaksCardNameRaw : fn;
+        hass.formatEntityName = this._wrap(raw, hass);
+      } catch (e) {
+        // never break hass
+      }
+      return hass;
+    },
+
+    _wrap: function (raw, hass) {
+      function wrapped(stateObj, name, options) {
+        try {
+          const short = preferredEntityName(hass, stateObj, name);
+          if (short) return short;
+        } catch (e) {
+          // fall through to Home Assistant
+        }
+        return raw.apply(this, arguments);
+      }
+      wrapped.__haTweaksCardName = true;
+      wrapped.__haTweaksCardNameRaw = raw;
+      wrapped.__haTweaksCardNameHass = hass;
+      return wrapped;
+    },
+  };
+
+  /* ================================================================
    * Tweak 7: Drag sidebar items to reorder them
    * - Delegated pointer handlers only: no observers, no timers, no work
    *   unless a pointer is actually down on a sidebar panel item.
@@ -7826,6 +8017,7 @@
     'inline-title-rename': 'mdi:rename-box',
     'right-click-hold': 'mdi:mouse-right-click',
     'chip-active-for': 'mdi:mushroom',
+    'entity-name-on-cards': 'mdi:card-text-outline',
     'sidebar-drag': 'mdi:drag',
     'marketplace-sidebar': 'mdi:store',
     'arrow-keys': 'mdi:keyboard-outline',
@@ -11641,6 +11833,7 @@
   TweakRegistry.register(DashboardEmptyMenuTweak);
   TweakRegistry.register(RightClickHoldTweak);
   TweakRegistry.register(ChipActiveForTweak);
+  TweakRegistry.register(CardEntityNameTweak);
   TweakRegistry.register(SidebarDragTweak);
   TweakRegistry.register(MarketplaceSidebarTweak);
   TweakRegistry.register(EditorVersionHistoryTweak);

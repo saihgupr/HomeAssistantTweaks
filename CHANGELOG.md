@@ -5,6 +5,11 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.22.0] - 2026-11-17
+
+### Added
+- A new **Card names: use the name you set** row in settings (`T`). Home Assistant 2026.11 builds card titles from parts, so an entity you renamed shows as the device name followed by your name, such as "Extra Speaker Desk Speaker" for an entity called "Desk Speaker". With this on, cards show just the name you typed. Cards with a name of their own keep it, and the switch applies immediately without a reload.
+
 ## [1.21.0] - 2026-11-17
 
 ### Added
