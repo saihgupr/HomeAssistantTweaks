@@ -23,7 +23,7 @@
   // wins and the duplicate exits before registering listeners.
   if (window.HATweaks && window.HATweaks._loaded) return;
 
-  const HA_TWEAKS_VERSION = '1.22.14';
+  const HA_TWEAKS_VERSION = '1.22.16';
   const CONFIG_KEY = 'ha_tweaks_config';
   // Pre-1.9.0 keys: read once as fallback so existing users keep their toggles.
   const LEGACY_CONFIG_KEY = 'ha_mods_config';
@@ -8833,9 +8833,11 @@
         star.setAttribute('aria-label', 'New in ' + versionLabel(entry.newIn));
         star.title = 'New in ' + versionLabel(entry.newIn);
         // Sits after the title, so a starred row never shifts the title
-        // column, and always rides the title line.
+        // column, and rides the title line with a small upward nudge so the
+        // glyph reads level rather than low.
         star.style.cssText =
           'flex:0 0 auto;display:flex;align-items:center;justify-content:center;' +
+          'position:relative;top:-1px;' +
           '--mdc-icon-size:14px;width:14px;height:14px;color:var(--warning-color,#ffb300);';
         heading.appendChild(star);
       }
