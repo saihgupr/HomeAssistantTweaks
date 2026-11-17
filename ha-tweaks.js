@@ -23,7 +23,7 @@
   // wins and the duplicate exits before registering listeners.
   if (window.HATweaks && window.HATweaks._loaded) return;
 
-  const HA_TWEAKS_VERSION = '1.22.18';
+  const HA_TWEAKS_VERSION = '1.22.19';
   const CONFIG_KEY = 'ha_tweaks_config';
   // Pre-1.9.0 keys: read once as fallback so existing users keep their toggles.
   const LEGACY_CONFIG_KEY = 'ha_mods_config';
@@ -8758,15 +8758,15 @@
       const enabled = !!entry.enabled;
       const isChild = entry.group === 'item';
       const row = document.createElement('div');
-      row.setAttribute('role', 'switch');
-      row.setAttribute('tabindex', '-1');
-      row.setAttribute('aria-checked', enabled ? 'true' : 'false');
-      row.setAttribute('data-ha-tweaks-setting-row', entry.key);
-      row.setAttribute('data-ha-tweaks-group', entry.group);
+      const setAttr = row.setAttribute.bind(row);
+      setAttr('data-ha-tweaks-setting-row', entry.key);
+      setAttr('data-ha-tweaks-group', entry.group);
       if (isChild && entry.tweak) {
-        row.setAttribute('data-ha-tweaks-parent', entry.tweak.id);
+        setAttr('data-ha-tweaks-parent', entry.tweak.id);
       }
-      row.title = (enabled ? 'Disable ' : 'Enable ') + entry.title;
+      // The row itself no longer toggles anything: the switch below owns the
+      // role, the keyboard handling and the click, so a stray tap on the
+      // title or description does nothing.
       // Rows sit inside a rounded card and size to their own content. The
       // icon, title, star, chevron and switch all ride the 18px title line,
       // so every switch lines up across cards whatever the description does.
@@ -8781,7 +8781,6 @@
         'background:transparent',
         'color:var(--primary-text-color,#212121)',
         'text-align:left',
-        'cursor:pointer',
         'font-family:inherit',
         'outline:none',
         'transition:background-color 120ms ease-in-out',
@@ -8790,20 +8789,17 @@
         // Keep the quick-bar search field focused, like HA's virtual list.
         let target = ev && ev.target;
         try {
-          if (target && typeof target.closest === 'function' && target.closest('a')) {
-            return;
+          if (target && typeof target.closest === 'function') {
+            // The switch and the links keep their own focus behaviour.
+            if (target.closest('a') || target.closest('[role="switch"]')) return;
           }
         } catch (e) {
           // fall through
         }
         if (typeof ev.preventDefault === 'function') ev.preventDefault();
       });
-      row.addEventListener('mouseenter', function () {
-        row.style.background = 'var(--ha-color-fill-neutral-quiet-hover,var(--secondary-background-color,#eeeeee))';
-      });
-      row.addEventListener('mouseleave', function () {
-        row.style.background = 'transparent';
-      });
+      // No row-level hover fill either: nothing happens when the row is
+      // clicked, so it should not look like a button.
 
       // The icon box is one title line tall, so the icon centres on the
       // title instead of on the whole two-line text block.
@@ -8849,11 +8845,12 @@
         heading.appendChild(star);
       }
       if (entry.group === 'tweak' && entry.hasChildren) {
-        row.setAttribute('aria-expanded', entry.expanded ? 'true' : 'false');
         // An 18px flex block owns the control and the click; the icon is
         // centred inside it, not laid out inline with the title.
         const chevronBox = document.createElement('div');
         chevronBox.setAttribute('role', 'button');
+        chevronBox.setAttribute('tabindex', '0');
+        chevronBox.setAttribute('aria-expanded', entry.expanded ? 'true' : 'false');
         chevronBox.setAttribute(
           'aria-label',
           (entry.expanded ? 'Collapse ' : 'Expand ') + entry.title
@@ -8880,6 +8877,11 @@
           self._expanded[entry.id] = !entry.expanded;
           self._renderList();
         });
+        chevronBox.addEventListener('keydown', function (ev) {
+          if (!ev || (ev.key !== 'Enter' && ev.key !== ' ')) return;
+          ev.preventDefault();
+          chevronBox.click();
+        });
         heading.appendChild(chevronBox);
       }
       text.appendChild(heading);
@@ -8902,13 +8904,23 @@
       }
       row.appendChild(text);
 
-      // The control box is one title line tall. The 20px switch overflows it
-      // by a pixel top and bottom, which centres the switch exactly on the
-      // title line on every row, whatever the description length.
+      // The switch box is one title line tall and is the only part of the
+      // row that toggles. The 20px switch overflows it by a pixel top and
+      // bottom, which centres it on the title line on every row, whatever
+      // the description does. The padding plus matching negative margin
+      // enlarges the hit area without moving the switch by so much as a
+      // pixel.
       const controls = document.createElement('div');
+      controls.setAttribute('role', 'switch');
+      controls.setAttribute('tabindex', '0');
+      controls.setAttribute('aria-checked', enabled ? 'true' : 'false');
+      controls.setAttribute('aria-label', entry.title);
+      controls.title = (enabled ? 'Disable ' : 'Enable ') + entry.title;
       controls.style.cssText =
         'flex:0 0 auto;align-self:flex-start;display:flex;align-items:center;' +
-        'justify-content:flex-end;height:18px;';
+        'justify-content:flex-end;height:18px;box-sizing:content-box;' +
+        'padding:10px;margin:-10px;border-radius:12px;cursor:pointer;' +
+        'outline:none;';
       const switchVisual = document.createElement('div');
       switchVisual.setAttribute('aria-hidden', 'true');
       switchVisual.style.cssText = [
@@ -8937,21 +8949,31 @@
       row.appendChild(controls);
 
       function paint() {
-        const on = row.getAttribute('aria-checked') === 'true';
+        const on = controls.getAttribute('aria-checked') === 'true';
         switchVisual.style.background = on
           ? 'var(--primary-color,#03a9f4)'
           : 'var(--disabled-text-color,#bdbdbd)';
         knob.style.left = on ? '19px' : '3px';
+        controls.title = (on ? 'Disable ' : 'Enable ') + entry.title;
       }
       paint();
 
-      row.addEventListener('keydown', function (ev) {
-        if (!ev || (ev.key !== 'Enter' && ev.key !== ' ')) return;
-        ev.preventDefault();
-        row.click();
+      // Focus ring on the switch only, since it is the only control here.
+      controls.addEventListener('focus', function () {
+        controls.style.boxShadow =
+          '0 0 0 2px var(--primary-color,#03a9f4)';
+      });
+      controls.addEventListener('blur', function () {
+        controls.style.boxShadow = 'none';
       });
 
-      row.addEventListener('click', function (ev) {
+      controls.addEventListener('keydown', function (ev) {
+        if (!ev || (ev.key !== 'Enter' && ev.key !== ' ')) return;
+        ev.preventDefault();
+        controls.click();
+      });
+
+      controls.addEventListener('click', function (ev) {
         let target = ev && ev.target;
         try {
           if (target && typeof target.closest === 'function' && target.closest('a')) {
@@ -8960,8 +8982,8 @@
         } catch (e) {
           // fall through to the toggle
         }
-        const next = row.getAttribute('aria-checked') !== 'true';
-        row.setAttribute('aria-checked', next ? 'true' : 'false');
+        const next = controls.getAttribute('aria-checked') !== 'true';
+        controls.setAttribute('aria-checked', next ? 'true' : 'false');
         paint();
         try {
           if (entry.group === 'tweak') {
