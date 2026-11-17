@@ -5,6 +5,12 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.22.17] - 2026-11-17
+
+### Changed
+- The settings panel now sizes to whatever the current filter shows instead of always opening at full height, and only the list scrolls when there are more tweaks than fit. A two-row filter no longer leaves half the panel empty.
+- In light theme the tweak cards are near-white instead of mid grey, so they read as cards on the dialog rather than as blocks of grey.
+
 ## [1.22.16] - 2026-11-17
 
 ### Fixed

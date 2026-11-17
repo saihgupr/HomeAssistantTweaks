@@ -23,7 +23,7 @@
   // wins and the duplicate exits before registering listeners.
   if (window.HATweaks && window.HATweaks._loaded) return;
 
-  const HA_TWEAKS_VERSION = '1.22.16';
+  const HA_TWEAKS_VERSION = '1.22.17';
   const CONFIG_KEY = 'ha_tweaks_config';
   // Pre-1.9.0 keys: read once as fallback so existing users keep their toggles.
   const LEGACY_CONFIG_KEY = 'ha_mods_config';
@@ -8125,6 +8125,9 @@
       dialog.setAttribute('role', 'dialog');
       dialog.setAttribute('aria-modal', 'true');
       dialog.setAttribute('aria-labelledby', 'ha-tweaks-title');
+      // Height follows the filtered content. The 340px floor stops a
+      // one-card result collapsing into a strip; the cap keeps 40px above
+      // and below the dialog, and the list is the only part that scrolls.
       dialog.style.cssText = [
         'position:fixed',
         'z-index:999999',
@@ -8133,8 +8136,8 @@
         'transform:translateX(-50%)',
         'width:min(580px,95vw)',
         'height:auto',
-        'min-height:min(620px,calc(100dvh - 48px))',
-        'max-height:calc(100dvh - 48px)',
+        'min-height:min(340px,calc(100dvh - 80px))',
+        'max-height:calc(100dvh - 80px)',
         'display:flex',
         'flex-direction:column',
         'padding:0',
@@ -8627,8 +8630,12 @@
         parent.expanded = expanded;
         const card = document.createElement('div');
         card.setAttribute('data-ha-tweaks-card', parent.id);
+        // Light: lighten(max) picks the near-white app background over the
+        // mid-grey fill. Dark: the same blend picks the existing #282828
+        // fill over the darker #111 background, so dark is unchanged.
         card.style.cssText = [
-          'background:var(--ha-color-fill-neutral-normal-resting,var(--secondary-background-color,#f5f5f5))',
+          'background:linear-gradient(var(--primary-background-color,var(--ha-color-fill-neutral-quiet-resting,#fafafa)),var(--primary-background-color,var(--ha-color-fill-neutral-quiet-resting,#fafafa))),var(--ha-color-fill-neutral-normal-resting,var(--secondary-background-color,#f5f5f5))',
+          'background-blend-mode:lighten',
           'border-radius:var(--ha-border-radius-lg,14px)',
           'overflow:hidden',
           'box-sizing:border-box',
@@ -8833,8 +8840,8 @@
         star.setAttribute('aria-label', 'New in ' + versionLabel(entry.newIn));
         star.title = 'New in ' + versionLabel(entry.newIn);
         // Sits after the title, so a starred row never shifts the title
-        // column, and rides the title line with a small upward nudge so the
-        // glyph reads level rather than low.
+        // column, and rides the title line with the small upward nudge the
+        // glyph needs to read level with the text.
         star.style.cssText =
           'flex:0 0 auto;display:flex;align-items:center;justify-content:center;' +
           'position:relative;top:-1px;' +
