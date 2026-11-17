@@ -12,6 +12,15 @@ Press **`T`** anywhere in Home Assistant to open settings. Every toggle applies 
 
 ---
 
+## What's new in 1.21.0
+
+- **Arrow keys that do something.** With an automation or script highlighted in quick search (`E` / `Ctrl+K`), left arrow deletes it and right arrow opens it in the editor. A small hint under the results shows both keys. The same keys work inside the entity popup.
+- **The entity popup joined in.** Right-click (or long-press) an automation or script's popup to get Edit and Delete without leaving the page.
+- **A switch of its own.** The shortcuts have their own **Arrow keys in search and popup** row in settings, so you can keep the right-click menu and drop the keys.
+- **Settings that fold.** Groups with child toggles start collapsed, with a chevron to open them. Switching a tweak on opens its group so you can see what it turned on.
+
+---
+
 ## Highlights
 
 ### Recover earlier versions of automations and scripts
