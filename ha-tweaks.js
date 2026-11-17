@@ -1,5 +1,5 @@
 /*
- * HA Tweaks v1.19.1 - frontend QoL tweaks for Home Assistant
+ * HA Tweaks v1.20.0 - frontend QoL tweaks for Home Assistant
  * Single-file, zero-dependency frontend plugin for Home Assistant.
  * Load via configuration.yaml:
  *   frontend:
@@ -23,7 +23,7 @@
   // wins and the duplicate exits before registering listeners.
   if (window.HATweaks && window.HATweaks._loaded) return;
 
-  const HA_TWEAKS_VERSION = '1.19.1';
+  const HA_TWEAKS_VERSION = '1.20.0';
   const CONFIG_KEY = 'ha_tweaks_config';
   // Pre-1.9.0 keys: read once as fallback so existing users keep their toggles.
   const LEGACY_CONFIG_KEY = 'ha_mods_config';
@@ -456,6 +456,26 @@
     return null;
   }
 
+  // Only automation and script rows are interesting; every other value is null.
+  function entityIdFromQuickBarValue(value) {
+    if (typeof value !== 'string' || !value) return null;
+    const sep = value.lastIndexOf(QUICK_BAR_ID_SEPARATOR);
+    if (sep < 0) return null;
+    const id = value.slice(sep + QUICK_BAR_ID_SEPARATOR.length);
+    if (id.indexOf('automation.') === 0 || id.indexOf('script.') === 0) {
+      return id;
+    }
+    return null;
+  }
+
+  function isQuickBarNode(node) {
+    try {
+      return !!node && ((node.tagName || '') + '').toUpperCase() === 'HA-QUICK-BAR';
+    } catch (e) {
+      return false;
+    }
+  }
+
   function quickBarEntityIdInPath(path) {
     if (!path || !path.length) return null;
     for (let i = 0; i < path.length; i++) {
@@ -467,13 +487,8 @@
       } catch (e) {
         value = undefined;
       }
-      if (typeof value !== 'string' || !value) continue;
-      const sep = value.lastIndexOf(QUICK_BAR_ID_SEPARATOR);
-      if (sep < 0) continue;
-      const id = value.slice(sep + QUICK_BAR_ID_SEPARATOR.length);
-      if (id.indexOf('automation.') === 0 || id.indexOf('script.') === 0) {
-        return id;
-      }
+      const id = entityIdFromQuickBarValue(value);
+      if (id) return id;
     }
     return null;
   }
@@ -777,7 +792,7 @@
     id: 'automation-context-menu',
     name: 'Automation + script context menu',
     description:
-      'Right-click (or long-press on touch) an automation or script entity in dashboards, configuration tables, quick search (E / Ctrl+K), or its entity popup. Actions toggleable in settings (T).',
+      'Right-click (or long-press on touch) an automation or script entity in dashboards, configuration tables, quick search (E / Ctrl+K), or its entity popup. In quick search, left arrow edits and right arrow deletes the highlighted result. Actions toggleable in settings (T).',
     defaultEnabled: true,
     menuItems: [
       { id: 'edit', label: 'Edit' },
@@ -807,6 +822,15 @@
     _menuHostEl: null,
     _menuTopLayer: false,
     _quickBarEl: null,
+    _quickBarSessionEl: null,
+    _quickBarComboEl: null,
+    _quickBarHintEl: null,
+    _quickBarHintTimer: null,
+    _quickBarHintTries: 0,
+    _quickBarObserver: null,
+    _quickBarSessionHandler: null,
+    _onQuickSearchKey: null,
+    _onQuickBarInput: null,
     _dialogEl: null,
     _dialogBackdropEl: null,
     _dialogHostEl: null,
@@ -844,6 +868,39 @@
         }
       };
       window.addEventListener('keydown', this._onKeyDown, { capture: true });
+
+      // Quick search rows: arrows edit / delete the highlighted automation or
+      // script, plus the hint strip that makes the mapping visible. HA binds
+      // neither arrow key on the combo box, so nothing here fights it.
+      this._onQuickSearchKey = function (ev) {
+        try {
+          self._handleQuickSearchKey(ev);
+        } catch (e) {
+          console.warn(LOG_TAG, 'quick search key handler failed', e);
+        }
+      };
+      window.addEventListener('keydown', this._onQuickSearchKey, { capture: true });
+
+      this._onQuickBarInput = function (ev) {
+        try {
+          const path =
+            ev && typeof ev.composedPath === 'function'
+              ? ev.composedPath()
+              : [ev && ev.target];
+          const quickBar = quickBarInPath(path);
+          if (!quickBar) return;
+          if (quickBar !== self._quickBarSessionEl) self._attachQuickBarSession(quickBar);
+          // HA re-filters the list async: give it a beat before reading the
+          // highlight again.
+          self._scheduleQuickBarHint(120);
+        } catch (e) {
+          // ignore
+        }
+      };
+      window.addEventListener('input', this._onQuickBarInput, { capture: true });
+
+      // Catch the quick bar opening and closing so the hint never outlives it.
+      this._watchQuickBarOpen();
 
       // Mobile long-press: pointer events only, touch primary pointer only.
       // Never preventDefault here (would break scroll); the menu opens on
@@ -942,6 +999,23 @@
         window.removeEventListener('keydown', this._onKeyDown, { capture: true });
         this._onKeyDown = null;
       }
+      if (this._onQuickSearchKey) {
+        window.removeEventListener('keydown', this._onQuickSearchKey, { capture: true });
+        this._onQuickSearchKey = null;
+      }
+      if (this._onQuickBarInput) {
+        window.removeEventListener('input', this._onQuickBarInput, { capture: true });
+        this._onQuickBarInput = null;
+      }
+      if (this._quickBarObserver) {
+        try {
+          this._quickBarObserver.disconnect();
+        } catch (e) {
+          // ignore
+        }
+        this._quickBarObserver = null;
+      }
+      this._endQuickBarSession();
       if (this._onPointerDown) {
         window.removeEventListener('pointerdown', this._onPointerDown, { capture: true });
         this._onPointerDown = null;
@@ -973,6 +1047,7 @@
     },
 
     onNavigate: function () {
+      this._endQuickBarSession();
       this.closeAll();
       // Registry barely changes, but a background refresh on navigation keeps
       // the cache correct for entities created since load.
@@ -1667,14 +1742,7 @@
         editBtn.addEventListener('click', function () {
           self._closeQuickBar();
           self.closeAll();
-          try {
-            history.pushState(null, '', '/config/' + self._domainFor(entityId) + '/edit/' + configId);
-            window.dispatchEvent(
-              new CustomEvent('location-changed', { bubbles: true, composed: true })
-            );
-          } catch (e) {
-            window.location.assign('/config/' + self._domainFor(entityId) + '/edit/' + configId);
-          }
+          self._openEditor(entityId, configId);
         });
       }
       built.push({ id: 'edit', el: editBtn });
@@ -2056,6 +2124,304 @@
       return host;
     },
 
+    // ---- quick search: arrow keys + key hint strip ----
+    // The quick bar keeps its result list in a private combo box. Its items and
+    // list are private fields too, so everything here is read defensively: a
+    // different shape means "no active row", never a throw.
+    _quickBarActiveId: function (quickBar) {
+      try {
+        const combo =
+          quickBar && quickBar.shadowRoot
+            ? quickBar.shadowRoot.querySelector('ha-picker-combo-box')
+            : null;
+        if (!combo) return null;
+        const list = combo._list;
+        let items = combo._items;
+        if (!Array.isArray(items) && list && Array.isArray(list.items)) {
+          items = list.items;
+        }
+        let index = -1;
+        if (list && typeof list.getActiveItemIndex === 'function') {
+          index = list.getActiveItemIndex();
+        }
+        if (typeof index !== 'number' || index < 0) return null;
+        if (!Array.isArray(items) || !items[index]) return null;
+        return entityIdFromQuickBarValue(items[index].id);
+      } catch (e) {
+        return null;
+      }
+    },
+
+    _handleQuickSearchKey: function (ev) {
+      if (!ev || ev.isComposing) return;
+      const path =
+        typeof ev.composedPath === 'function' ? ev.composedPath() : [ev.target];
+      const quickBar = quickBarInPath(path);
+      if (!quickBar) return;
+      if (quickBar !== this._quickBarSessionEl) this._attachQuickBarSession(quickBar);
+      // Up/Down/Home/End/typing change what is highlighted: refresh the hint
+      // after HA has moved the highlight.
+      if (ev.key !== 'ArrowLeft' && ev.key !== 'ArrowRight') {
+        this._scheduleQuickBarHint();
+        return;
+      }
+      if (ev.ctrlKey || ev.metaKey || ev.altKey) return;
+      // The search field is an input and keeps the arrows; a textarea or a
+      // rich-text editor never loses them.
+      try {
+        const target = path[0] || ev.target;
+        if (target) {
+          const tn = ((target.tagName || '') + '').toUpperCase();
+          if (tn === 'TEXTAREA') return;
+          if (target.isContentEditable) return;
+        }
+      } catch (e) {
+        return;
+      }
+      const itemId = ev.key === 'ArrowLeft' ? 'edit' : 'delete';
+      if (!this._isItemEnabled(itemId)) return;
+      const entityId = this._quickBarActiveId(quickBar);
+      if (!entityId) return;
+      const hass = getHass();
+      if (!hass) return;
+      try {
+        if (ev.cancelable) ev.preventDefault();
+        ev.stopPropagation();
+      } catch (e) {
+        // ignore
+      }
+      const stateObj = hass.states ? hass.states[entityId] : undefined;
+      const configId = this._configIdFor(hass, entityId, stateObj, path);
+      const friendlyName =
+        (stateObj && stateObj.attributes && stateObj.attributes.friendly_name) || entityId;
+      if (!configId) {
+        // Keep the results open: there is nothing to edit or delete.
+        toast(
+          'This entry has no UI id, cannot ' +
+            (itemId === 'edit' ? 'edit' : 'delete') +
+            ' from the UI'
+        );
+        return;
+      }
+      this._clearQuickBarHint();
+      this._closeQuickBar(quickBar);
+      this.closeAll();
+      if (itemId === 'edit') {
+        this._openEditor(entityId, configId);
+      } else {
+        // Same confirmation the context menu uses; nothing deletes silently.
+        this._showDeleteConfirm(entityId, friendlyName, configId);
+      }
+    },
+
+    // Edit action shared by the context menu and the arrow keys. Navigates in
+    // place so the page does not reload.
+    _openEditor: function (entityId, configId) {
+      if (!configId) return false;
+      const path = '/config/' + this._domainFor(entityId) + '/edit/' + configId;
+      try {
+        history.pushState(null, '', path);
+        window.dispatchEvent(
+          new CustomEvent('location-changed', { bubbles: true, composed: true })
+        );
+      } catch (e) {
+        window.location.assign(path);
+      }
+      return true;
+    },
+
+    _watchQuickBarOpen: function () {
+      const self = this;
+      if (this._quickBarObserver || typeof MutationObserver === 'undefined') return;
+      try {
+        if (typeof document === 'undefined' || !document.body) return;
+        this._quickBarObserver = new MutationObserver(function (records) {
+          try {
+            for (let i = 0; i < records.length; i++) {
+              const added = records[i].addedNodes || [];
+              for (let j = 0; j < added.length; j++) {
+                if (isQuickBarNode(added[j])) self._attachQuickBarSession(added[j]);
+              }
+              const removed = records[i].removedNodes || [];
+              for (let k = 0; k < removed.length; k++) {
+                if (removed[k] === self._quickBarSessionEl) self._endQuickBarSession();
+              }
+            }
+          } catch (e) {
+            // ignore
+          }
+        });
+        this._quickBarObserver.observe(document.body, { childList: true });
+      } catch (e) {
+        this._quickBarObserver = null;
+      }
+    },
+
+    _attachQuickBarSession: function (quickBar) {
+      if (!quickBar || quickBar === this._quickBarSessionEl) return;
+      const self = this;
+      this._endQuickBarSession();
+      this._quickBarSessionEl = quickBar;
+      this._quickBarSessionHandler = function () {
+        try {
+          if (self._quickBarSessionEl === quickBar) self._endQuickBarSession();
+        } catch (e) {
+          // ignore
+        }
+      };
+      try {
+        quickBar.addEventListener('dialog-closed', this._quickBarSessionHandler);
+        quickBar.addEventListener('close', this._quickBarSessionHandler);
+      } catch (e) {
+        // ignore
+      }
+      this._scheduleQuickBarHint();
+    },
+
+    _endQuickBarSession: function () {
+      const quickBar = this._quickBarSessionEl;
+      const handler = this._quickBarSessionHandler;
+      this._quickBarSessionEl = null;
+      this._quickBarSessionHandler = null;
+      if (quickBar && handler) {
+        try {
+          quickBar.removeEventListener('dialog-closed', handler);
+          quickBar.removeEventListener('close', handler);
+        } catch (e) {
+          // ignore
+        }
+      }
+      this._clearQuickBarHint();
+    },
+
+    _scheduleQuickBarHint: function (delay) {
+      const self = this;
+      if (this._quickBarHintTimer) return;
+      this._quickBarHintTimer = setTimeout(function () {
+        self._quickBarHintTimer = null;
+        try {
+          self._updateQuickBarHint();
+        } catch (e) {
+          // ignore
+        }
+      }, typeof delay === 'number' ? delay : 60);
+    },
+
+    _updateQuickBarHint: function () {
+      try {
+        const quickBar = this._quickBarSessionEl;
+        if (!quickBar || !quickBar.isConnected) {
+          this._clearQuickBarHint();
+          return;
+        }
+        const editOn = this._isItemEnabled('edit');
+        const deleteOn = this._isItemEnabled('delete');
+        if (!editOn && !deleteOn) {
+          this._clearQuickBarHint();
+          return;
+        }
+        const strip = this._ensureQuickBarHint(quickBar);
+        if (!strip) {
+          // The combo box can render a beat after the dialog opens: look a few
+          // more times, then wait for the next key press or input.
+          if (this._quickBarHintTries < 8) {
+            this._quickBarHintTries++;
+            this._scheduleQuickBarHint(140);
+          }
+          return;
+        }
+        this._quickBarHintTries = 0;
+        const entityId = this._quickBarActiveId(quickBar);
+        if (!entityId) {
+          strip.style.display = 'none';
+          return;
+        }
+        strip.textContent = '';
+        if (editOn) strip.appendChild(this._makeQuickHintPart('mdi:pencil', '←', 'Edit'));
+        if (deleteOn) {
+          strip.appendChild(this._makeQuickHintPart('mdi:delete-outline', '→', 'Delete'));
+        }
+        strip.style.display = 'flex';
+      } catch (e) {
+        // ignore
+      }
+    },
+
+    _ensureQuickBarHint: function (quickBar) {
+      try {
+        const combo =
+          quickBar && quickBar.shadowRoot
+            ? quickBar.shadowRoot.querySelector('ha-picker-combo-box')
+            : null;
+        if (!combo || !combo.shadowRoot) return null;
+        if (
+          this._quickBarHintEl &&
+          this._quickBarComboEl === combo &&
+          this._quickBarHintEl.parentNode === combo.shadowRoot
+        ) {
+          return this._quickBarHintEl;
+        }
+        this._clearQuickBarHint();
+        const strip = document.createElement('div');
+        strip.setAttribute('data-ha-tweaks', 'quick-search-hint');
+        strip.style.cssText = [
+          'display:none',
+          'flex:0 0 auto',
+          'align-items:center',
+          'justify-content:center',
+          'gap:16px',
+          'box-sizing:border-box',
+          'padding:6px 14px',
+          'margin:0',
+          'border-top:1px solid var(--divider-color,#e0e0e0)',
+          'color:var(--secondary-text-color,#727272)',
+          'font-family:inherit',
+          'font-size:12px',
+          'line-height:1.2',
+        ].join(';');
+        combo.shadowRoot.appendChild(strip);
+        this._quickBarHintEl = strip;
+        this._quickBarComboEl = combo;
+        return strip;
+      } catch (e) {
+        return null;
+      }
+    },
+
+    _makeQuickHintPart: function (iconName, keyLabel, text) {
+      const part = document.createElement('span');
+      part.style.cssText = 'display:inline-flex;align-items:center;gap:4px;';
+      const icon = document.createElement('ha-icon');
+      icon.setAttribute('icon', iconName);
+      icon.style.cssText = 'flex:0 0 auto;color:inherit;--mdc-icon-size:16px;';
+      const key = document.createElement('span');
+      key.textContent = keyLabel;
+      const label = document.createElement('span');
+      label.textContent = text;
+      part.appendChild(icon);
+      part.appendChild(key);
+      part.appendChild(label);
+      return part;
+    },
+
+    _clearQuickBarHint: function () {
+      if (this._quickBarHintTimer) {
+        clearTimeout(this._quickBarHintTimer);
+        this._quickBarHintTimer = null;
+      }
+      this._quickBarHintTries = 0;
+      const strip = this._quickBarHintEl;
+      this._quickBarHintEl = null;
+      this._quickBarComboEl = null;
+      if (strip && strip.parentNode) {
+        try {
+          strip.parentNode.removeChild(strip);
+        } catch (e) {
+          // ignore
+        }
+      }
+    },
+
     _closeQuickBar: function (quickBar) {
       const qb = quickBar || this._quickBarEl;
       this._quickBarEl = null;
@@ -2110,6 +2476,7 @@
       this._dialogBackdropEl = null;
       this._quickBarEl = null;
       this._menuTopLayer = false;
+      this._clearQuickBarHint();
     },
   };
 

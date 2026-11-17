@@ -5,6 +5,11 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.20.0] - 2026-11-17
+
+### Added
+- Quick search answers to the arrow keys. With an automation or script highlighted, left arrow opens it in the editor and right arrow deletes it, and a small hint under the results shows both keys while that row is selected. The arrows follow the Edit and Delete switches in settings, and deleting still asks for confirmation.
+
 ## [1.19.1] - 2026-11-16
 
 ### Added
