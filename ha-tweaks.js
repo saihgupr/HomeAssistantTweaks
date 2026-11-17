@@ -23,7 +23,7 @@
   // wins and the duplicate exits before registering listeners.
   if (window.HATweaks && window.HATweaks._loaded) return;
 
-  const HA_TWEAKS_VERSION = '1.22.0';
+  const HA_TWEAKS_VERSION = '1.22.10';
   const CONFIG_KEY = 'ha_tweaks_config';
   // Pre-1.9.0 keys: read once as fallback so existing users keep their toggles.
   const LEGACY_CONFIG_KEY = 'ha_mods_config';
@@ -2553,6 +2553,7 @@
     id: 'arrow-keys',
     name: 'Arrow keys in search and popup',
     description: 'Menu item in Automation + script context menu',
+    newIn: '1.21.0',
     defaultEnabled: true,
     init: function () {},
     destroy: function () {},
@@ -7193,6 +7194,7 @@
   const CardEntityNameTweak = {
     id: CARD_ENTITY_NAME_ID,
     name: 'Card names: use the name you set',
+    newIn: '1.22.0',
     description:
       'Home Assistant 2026.11 puts the device name in front of card titles, so an entity you renamed shows as "Extra Speaker Desk Speaker". This shows the name you typed on its own. Cards with a name of their own are left alone.',
     defaultEnabled: true,
@@ -8040,6 +8042,43 @@
   const VC_ADDON_REPO_URL =
     'https://github.com/saihgupr/HomeAssistantVersionControl';
 
+  // "1.22.0" -> 122 (major * 100 + minor). Unreadable values return null so
+  // markers fail closed instead of starring everything.
+  function versionOrdinal(value) {
+    try {
+      const match = /^\s*(\d+)\.(\d+)/.exec(String(value || ''));
+      if (!match) return null;
+      return parseInt(match[1], 10) * 100 + parseInt(match[2], 10);
+    } catch (e) {
+      return null;
+    }
+  }
+
+  // "1.22.0" -> "1.22", for the tooltip and screen reader label.
+  function versionLabel(value) {
+    try {
+      const match = /^\s*(\d+)\.(\d+)/.exec(String(value || ''));
+      return match ? match[1] + '.' + match[2] : '';
+    } catch (e) {
+      return '';
+    }
+  }
+
+  // A marked row stays starred for the release it shipped in and the one
+  // after it, so "what's new" covers the last two minor versions and then
+  // fades away on its own.
+  function isNewInLatest(newIn) {
+    try {
+      const marker = versionOrdinal(newIn);
+      const current = versionOrdinal(HA_TWEAKS_VERSION);
+      if (marker === null || current === null) return false;
+      const delta = current - marker;
+      return delta === 0 || delta === 1;
+    } catch (e) {
+      return false;
+    }
+  }
+
   const SettingsModal = {
     _open: false,
     _dialogEl: null,
@@ -8231,6 +8270,9 @@
       [
         { id: 'all', label: 'All' },
         { id: 'tweak', label: 'Tweaks' },
+        { id: 'new', label: 'New' },
+        { id: 'on', label: 'On' },
+        { id: 'off', label: 'Off' },
       ].forEach(function (def) {
         const chip = document.createElement('button');
         chip.type = 'button';
@@ -8376,6 +8418,8 @@
         parentTitle: tweak.name,
         icon: MENU_ITEM_ICONS[item.id] || SETTINGS_ICONS[tweak.id] || 'mdi:circle-medium',
         enabled: isItemEnabled(tweak.id, item.id),
+        newIn: item.newIn || null,
+        isNew: isNewInLatest(item.newIn),
         tweak: tweak,
         item: item,
       };
@@ -8393,6 +8437,8 @@
           parentTitle: tweak.name,
           icon: SETTINGS_ICONS[tweak.id] || 'mdi:tune',
           enabled: !!TweakRegistry.enabled[tweak.id],
+          newIn: tweak.newIn || null,
+          isNew: isNewInLatest(tweak.newIn),
           tweak: tweak,
           item: null,
         };
@@ -8429,13 +8475,62 @@
     _filteredGroups: function () {
       const section = this._section;
       const terms = this._terms();
+      const matches = (entry) => this._matchesEntry(entry, terms);
       return this._getGroups()
         .map((group) => {
           const parent = group.parent;
-          const parentMatches = this._matchesEntry(parent, terms);
+          const parentMatches = matches(parent);
+          const children = group.children;
 
           if (section === 'tweak') {
             return parentMatches ? { parent, children: [] } : null;
+          }
+
+          // New: only starred rows. A new parent stands on its own; an older
+          // parent appears only as the heading for its new sub-items.
+          if (section === 'new') {
+            if (parent.isNew) {
+              return parentMatches ? { parent, children: [] } : null;
+            }
+            const newChildren = children.filter(
+              (child) => child.isNew && matches(child)
+            );
+            return newChildren.length ? { parent, children: newChildren } : null;
+          }
+
+          if (section === 'on' || section === 'off') {
+            const wantOn = section === 'on';
+            // A parent that is off is listed on its own; its sub-items have
+            // no effect until the parent is back on.
+            if (!parent.enabled) {
+              return !wantOn && parentMatches
+                ? { parent, children: [] }
+                : null;
+            }
+            // An on parent is only listed as the heading for the sub-items
+            // on the side being filtered when it is off itself.
+            if (!wantOn) {
+              const offChildren = children.filter(
+                (child) => !child.enabled && matches(child)
+              );
+              return offChildren.length
+                ? { parent, children: offChildren }
+                : null;
+            }
+            if (!parentMatches) {
+              const onChildren = children.filter(
+                (child) => child.enabled && matches(child)
+              );
+              return onChildren.length
+                ? { parent, children: onChildren }
+                : null;
+            }
+            return {
+              parent,
+              children: children.filter(
+                (child) => child.enabled && matches(child)
+              ),
+            };
           }
 
           if (!parent.enabled) {
@@ -8444,12 +8539,10 @@
           }
 
           if (parentMatches) {
-            return { parent, children: group.children };
+            return { parent, children };
           }
 
-          const matchingChildren = group.children.filter((child) =>
-            this._matchesEntry(child, terms)
-          );
+          const matchingChildren = children.filter(matches);
           return matchingChildren.length ? { parent, children: matchingChildren } : null;
         })
         .filter(Boolean);
@@ -8511,9 +8604,15 @@
       }
       groups.forEach(function (group) {
         const parent = group.parent;
-        const expanded = self._isGroupExpanded(parent, group.children.length);
+        // Filtered views list matched rows, so their groups stay open and
+        // carry no chevron to collapse them.
+        const forceOpen = self._section !== 'all';
+        const expanded =
+          forceOpen && group.children.length > 0
+            ? true
+            : self._isGroupExpanded(parent, group.children.length);
         // The chevron only exists when there are child rows to show.
-        parent.hasChildren = group.children.length > 0;
+        parent.hasChildren = group.children.length > 0 && !forceOpen;
         parent.expanded = expanded;
         list.appendChild(self._makeRow(parent));
         if (!expanded) return;
@@ -8647,6 +8746,7 @@
         'cursor:pointer',
         'font-family:inherit',
         'outline:none',
+        'position:relative',
       ].join(';');
       row.addEventListener('mousedown', function (ev) {
         // Keep the quick-bar search field focused, like HA's virtual list.
@@ -8698,6 +8798,20 @@
         '-webkit-box-orient:vertical',
         'overflow:hidden',
       ].join(';');
+      if (entry.isNew) {
+        const star = document.createElement('ha-icon');
+        star.setAttribute('icon', 'mdi:star');
+        star.setAttribute('role', 'img');
+        star.setAttribute('aria-label', 'New in ' + versionLabel(entry.newIn));
+        star.title = 'New in ' + versionLabel(entry.newIn);
+        // Anchored to the row's centre (where the icon sits) and nudged up a
+        // little, so every row lines up even when descriptions wrap.
+        star.style.cssText =
+          'position:absolute;left:3px;top:calc(50% - 2.5px);transform:translateY(-50%);' +
+          'pointer-events:none;--mdc-icon-size:14px;width:14px;height:14px;' +
+          'color:var(--warning-color,#ffb300);';
+        row.appendChild(star);
+      }
       heading.appendChild(headline);
       text.appendChild(heading);
       text.appendChild(supporting);

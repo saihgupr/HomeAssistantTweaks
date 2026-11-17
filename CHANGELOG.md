@@ -5,6 +5,54 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.22.10] - 2026-11-17
+
+### Fixed
+- The new-item star settles halfway between its last two positions.
+
+## [1.22.9] - 2026-11-17
+
+### Fixed
+- The new-item star drops a few pixels closer to the row's icon centre.
+
+## [1.22.8] - 2026-11-17
+
+### Fixed
+- The new-item star is anchored to the row's vertical centre instead of a fixed offset from the top, so it lines up beside the icon on every row, whether the description wraps to one line or two.
+
+## [1.22.7] - 2026-11-17
+
+### Fixed
+- The new-item star drops closer to the row's icon center.
+
+## [1.22.6] - 2026-11-17
+
+### Fixed
+- The new-item star sits lower again, between the title and the row icon, so it reads level with the row instead of floating above it.
+
+## [1.22.5] - 2026-11-17
+
+### Fixed
+- The new-item star now sits level with the row title instead of hanging down toward the description.
+
+## [1.22.4] - 2026-11-17
+
+### Added
+- Three more settings filters next to **All** and **Tweaks**: **New** lists only the rows added in the last two releases, **On** lists what is currently active, and **Off** lists what is switched off. Groups in those views open automatically and hide their expand arrow, so every match is visible at once.
+
+## [1.22.3] - 2026-11-17
+
+### Fixed
+- The new-item star sits in the row's left padding instead of the title line, so starred rows keep the same title column as every other row.
+
+## [1.22.2] - 2026-11-17
+
+### Added
+- A yellow star marks settings rows added in the current or previous release. It sits left of the title and covers the **Arrow keys in search and popup** row and the **Card names: use the name you set** row. Items are marked with the version they shipped in, so the star clears itself as versions move on.
+
+### Changed
+- The settings list keeps its earlier layout. The grouped-row redesign from 1.22.1 is dropped.
+
 ## [1.22.0] - 2026-11-17
 
 ### Added
