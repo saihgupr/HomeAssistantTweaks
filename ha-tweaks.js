@@ -23,7 +23,7 @@
   // wins and the duplicate exits before registering listeners.
   if (window.HATweaks && window.HATweaks._loaded) return;
 
-  const HA_TWEAKS_VERSION = '1.22.22';
+  const HA_TWEAKS_VERSION = '1.22.23';
   const CONFIG_KEY = 'ha_tweaks_config';
   // Pre-1.9.0 keys: read once as fallback so existing users keep their toggles.
   const LEGACY_CONFIG_KEY = 'ha_mods_config';
@@ -2356,115 +2356,30 @@
       this._clearQuickBarHint();
     },
 
-    _scheduleQuickBarHint: function (delay) {
-      const self = this;
-      if (this._quickBarHintTimer) return;
-      this._quickBarHintTimer = setTimeout(function () {
-        self._quickBarHintTimer = null;
-        try {
-          self._updateQuickBarHint();
-        } catch (e) {
-          // ignore
-        }
-      }, typeof delay === 'number' ? delay : 60);
-    },
-
-    _updateQuickBarHint: function () {
+    _scheduleQuickBarHint: function () {
+      // Hint strip removed: arrow shortcuts still work, no bottom message.
       try {
-        const quickBar = this._quickBarSessionEl;
-        if (!quickBar || !quickBar.isConnected) {
-          this._clearQuickBarHint();
-          return;
-        }
-        const arrowsOn = this._arrowsOn();
-        const editOn = arrowsOn && this._isItemEnabled('edit');
-        const deleteOn = arrowsOn && this._isItemEnabled('delete');
-        if (!editOn && !deleteOn) {
-          this._clearQuickBarHint();
-          return;
-        }
-        const strip = this._ensureQuickBarHint(quickBar);
-        if (!strip) {
-          // The combo box can render a beat after the dialog opens: look a few
-          // more times, then wait for the next key press or input.
-          if (this._quickBarHintTries < 8) {
-            this._quickBarHintTries++;
-            this._scheduleQuickBarHint(140);
-          }
-          return;
-        }
-        this._quickBarHintTries = 0;
-        const entityId = this._quickBarActiveId(quickBar);
-        if (!entityId) {
-          strip.style.display = 'none';
-          return;
-        }
-        strip.textContent = '';
-        if (deleteOn) {
-          strip.appendChild(this._makeQuickHintPart('mdi:delete-outline', '←', 'Delete'));
-        }
-        if (editOn) strip.appendChild(this._makeQuickHintPart('mdi:pencil', '→', 'Edit'));
-        strip.style.display = 'flex';
+        this._clearQuickBarHint();
       } catch (e) {
         // ignore
       }
     },
 
-    _ensureQuickBarHint: function (quickBar) {
+    _updateQuickBarHint: function () {
+      // Hint strip removed: arrow shortcuts still work, no bottom message.
       try {
-        const combo =
-          quickBar && quickBar.shadowRoot
-            ? quickBar.shadowRoot.querySelector('ha-picker-combo-box')
-            : null;
-        if (!combo || !combo.shadowRoot) return null;
-        if (
-          this._quickBarHintEl &&
-          this._quickBarComboEl === combo &&
-          this._quickBarHintEl.parentNode === combo.shadowRoot
-        ) {
-          return this._quickBarHintEl;
-        }
         this._clearQuickBarHint();
-        const strip = document.createElement('div');
-        strip.setAttribute('data-ha-tweaks', 'quick-search-hint');
-        strip.style.cssText = [
-          'display:none',
-          'flex:0 0 auto',
-          'align-items:center',
-          'justify-content:center',
-          'gap:16px',
-          'box-sizing:border-box',
-          'padding:6px 14px',
-          'margin:0',
-          'border-top:1px solid var(--divider-color,#e0e0e0)',
-          'color:var(--secondary-text-color,#727272)',
-          'font-family:inherit',
-          'font-size:12px',
-          'line-height:1.2',
-        ].join(';');
-        combo.shadowRoot.appendChild(strip);
-        this._quickBarHintEl = strip;
-        this._quickBarComboEl = combo;
-        return strip;
       } catch (e) {
-        return null;
+        // ignore
       }
     },
 
-    _makeQuickHintPart: function (iconName, keyLabel, text) {
-      const part = document.createElement('span');
-      part.style.cssText = 'display:inline-flex;align-items:center;gap:4px;';
-      const icon = document.createElement('ha-icon');
-      icon.setAttribute('icon', iconName);
-      icon.style.cssText = 'flex:0 0 auto;color:inherit;--mdc-icon-size:16px;';
-      const key = document.createElement('span');
-      key.textContent = keyLabel;
-      const label = document.createElement('span');
-      label.textContent = text;
-      part.appendChild(icon);
-      part.appendChild(key);
-      part.appendChild(label);
-      return part;
+    _ensureQuickBarHint: function () {
+      return null;
+    },
+
+    _makeQuickHintPart: function () {
+      return null;
     },
 
     _clearQuickBarHint: function () {
